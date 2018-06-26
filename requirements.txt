@@ -1,0 +1,9 @@
+aiofiles
+PyYAML
+telepot
+apscheduler
+mongoengine
+mongomock
+aiohttp
+cchardet
+aiodns

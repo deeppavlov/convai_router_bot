@@ -1,0 +1,24 @@
+mongo_uri: ${MONGO_URI:mongodb://localhost/convai}
+
+facebook:
+  page_access_token: ${FB_PAGE_ACCESS_TOKEN}
+  webhook: ${FB_WEBHOOK}
+  webhook_secret: ${FB_WEBHOOK_SECRET}
+
+telegram:
+  webhook: ${TG_WEBHOOK}
+  token: ${TG_TOKEN}
+
+dialog:
+  max_time_in_lobby: 300
+  human_bot_ratio: 0.0
+  inactivity_timeout: 600
+  max_length: 1000
+  evaluation_score_from: 1
+  evaluation_score_to: 5
+  n_bad_messages_in_a_row_threshold: 10
+  guess_profile_sentence_by_sentence: true
+
+logging:
+  root_path: ~/log/convai-router
+  base_level: DEBUG
