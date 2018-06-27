@@ -292,9 +292,14 @@ class TelegramMessenger(AbstractMessenger):
 
     def _get_select_profile_keyboard(self, additional_data: str = '',
                                      selected_button_idx: Optional[int] = None) -> InlineKeyboardMarkup:
+        def command_provider(i: int, txt: str) -> str:
+            res = f'/select_profile {i}'
+            if additional_data:
+                res += f' {additional_data}'
+            return res
+
         buttons = self._get_flat_inline_keyboard_buttons(['1️⃣', '2️⃣'],
-                                                         lambda i, txt: '/select_profile {} {}'.format(str(i),
-                                                                                                       additional_data),
+                                                         command_provider,
                                                          selected_button_idx)
         return InlineKeyboardMarkup(inline_keyboard=[buttons])
 
