@@ -78,6 +78,12 @@ def handle_import_profiles(args):
     print(f'{len(profiles)} profiles imported')
 
 
+def handle_training_conversations(args):
+    training_conversations = util.export_training_conversations(args.date)
+    import bson
+    print(args.formatter.format_entity(training_conversations))
+
+
 def setup_argparser():
     parser = argparse.ArgumentParser(description='ConvAI system management tool')
     parser.add_argument('--mongo-uri',
@@ -202,6 +208,20 @@ def setup_argparser():
                                         help='Profiles file name. stdin by default',
                                         default=sys.stdin)
     parser_import_profiles.set_defaults(func=handle_import_profiles)
+
+    training_conversations = subparsers.add_parser('training-dialogs',
+                                                   help='Export training conversations for given date',
+                                                   description='Export training conversations for given date')
+    training_conversations.add_argument('-d',
+                                        '--date',
+                                        type=str,
+                                        help='Date of dialogs occurence in YYYY-MM-DD format')
+    training_conversations.add_argument('-t',
+                                        '--target',
+                                        type=str,
+                                        default='~/router_bot_export',
+                                        help='Target dir for export. Default is %(default)s')
+    training_conversations.set_defaults(func=handle_training_conversations)
 
     return parser
 
