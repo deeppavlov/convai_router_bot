@@ -2,6 +2,8 @@
 import argparse
 import os
 import sys
+import json
+from pathlib import Path
 
 import mongoengine
 
@@ -79,9 +81,27 @@ def handle_import_profiles(args):
 
 
 def handle_training_conversations(args):
-    training_conversations = util.export_training_conversations(args.date)
-    import bson
-    print(args.formatter.format_entity(training_conversations))
+    save_dir = Path(args.target).expanduser().resolve()
+    save_dir = save_dir.joinpath('train_valid')
+
+    if not save_dir.is_dir():
+        save_dir.mkdir(parents=True)
+
+    save_path_train = save_dir.joinpath(f'{args.date}_train.json')
+    save_path_valid = save_dir.joinpath(f'{args.date}_valid.json')
+
+    convs = util.export_training_conversations(args.date)
+    convs_num_train = round(len(convs) * args.rate)
+    convs_train = convs[:convs_num_train]
+    convs_valid = convs[convs_num_train:]
+
+    with open(save_path_train, 'w') as f_train:
+        json.dump(convs_train, f_train)
+
+    with open(save_path_valid, 'w') as f_valid:
+        json.dump(convs_valid, f_valid)
+
+    print(f'Training and validation datasets for {args.date} saved in {save_dir}')
 
 
 def setup_argparser():
@@ -221,6 +241,11 @@ def setup_argparser():
                                         type=str,
                                         default='~/router_bot_export',
                                         help='Target dir for export. Default is %(default)s')
+    training_conversations.add_argument('-r',
+                                        '--rate',
+                                        type=int,
+                                        default=0.8,
+                                        help='Dialogs in training/validation datasets rate. Default is %(default)s')
     training_conversations.set_defaults(func=handle_training_conversations)
 
     return parser

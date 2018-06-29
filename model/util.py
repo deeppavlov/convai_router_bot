@@ -142,14 +142,30 @@ def import_profiles(stream: Union[TextIO, StringIO]):
 
 
 def export_training_conversations(export_date, dir=None):
+    training_convs = []
+
     datetime_begin = datetime.strptime(f'{export_date}_00:00:00.000000', "%Y-%m-%d_%H:%M:%S.%f")
     datetime_end = datetime.strptime(f'{export_date}_23:59:59.999999', "%Y-%m-%d_%H:%M:%S.%f")
-    args = {'start_time__gte': datetime_begin, 'end_time__lte': datetime_end}
-    conv = Conversation.objects(**args)
-    cnv = conv[0]
-    msg = cnv.messages[0]
-    id1 = cnv.participant1.peer.id
-    id2 = cnv.participant2.peer.id
-    print(str(id1), str(id2))
-    return msg.sender
-    #return cnv.participant1.peer.id
+    args = {'start_time__gte': datetime_begin, 'start_time__lte': datetime_end}
+    convs = Conversation.objects(**args)
+
+    for conv in convs:
+        training_conv = {
+            'dialog_id': str(conv.id),
+            'dialog': []
+        }
+        participants = {}
+        participants[str(conv.participant1.peer.id)] = 'participant1'
+        participants[str(conv.participant2.peer.id)] = 'participant2'
+
+        for msg in conv.messages:
+            training_message = {
+                'id': msg.msg_id,
+                'sender': participants[str(msg.sender.id)],
+                'text': msg.text
+            }
+            training_conv['dialog'].append(training_message)
+
+        training_convs.append(training_conv)
+
+    return training_convs
