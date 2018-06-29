@@ -5,6 +5,7 @@ from typing import TextIO, Union
 from uuid import uuid4
 
 from mongoengine import errors
+from mongoengine.queryset.visitor import Q
 
 from . import Bot, PersonProfile, User, UserPK, BannedPair, Conversation, ConversationPeer, Message, Complaint
 
@@ -141,7 +142,7 @@ def import_profiles(stream: Union[TextIO, StringIO]):
     return PersonProfile.objects.insert(list(profiles))
 
 
-def export_training_conversations(export_date, dir=None):
+def export_training_conversations(export_date):
     training_convs = []
 
     datetime_begin = datetime.strptime(f'{export_date}_00:00:00.000000', "%Y-%m-%d_%H:%M:%S.%f")
@@ -169,3 +170,92 @@ def export_training_conversations(export_date, dir=None):
         training_convs.append(training_conv)
 
     return training_convs
+
+
+def export_bot_scores():
+    # TODO: refactor with $lookup
+    convs = {}
+
+    profiles_obj = PersonProfile.objects
+    profiles = {str(profile.pk): list(profile.sentences) for profile in profiles_obj}
+
+    for bot in Bot.objects:
+        bot_id = str(bot.id)
+
+        q_participant1 = Q(participant1__peer=bot)
+        q_participant2 = Q(participant2__peer=bot)
+        bot_convs = Conversation.objects(q_participant1 | q_participant2)
+
+        for bot_conv in bot_convs:
+            bot_conv_id = str(bot_conv.id)
+
+            if isinstance(bot_conv.participant1.peer, Bot):
+                peer_bot = bot_conv.participant1
+                peer_user = bot_conv.participant2
+            else:
+                peer_bot = bot_conv.participant2
+                peer_user = bot_conv.participant1
+
+            bot_profile = peer_bot.assigned_profile
+            user_eval_score = peer_user.dialog_evaluation_score
+            user_profile_selected = peer_user.other_peer_profile_selected
+            user_profile_selected_parts = peer_user.other_peer_profile_selected_parts
+
+            convs
+
+            #try:
+            #    print(part_user.other_peer_profile_selected.sentences)
+            #except errors.DoesNotExist:
+            #    print('errors.DoesNotExist:')
+            #except AttributeError:
+            #    print('AttributeError:')
+
+            #convs[bot_id] = type(bot_conv.participant2.peer)
+
+
+    #bot_ids = [bot.id for bot in Bot.objects]
+    #participant1 = Conversation.participant1.peer.id
+    #participant2 = Conversation.participant2.peer.id
+
+    #for bot_id in bot_ids:
+
+        #q1 = Q("{'participant1.peer.id': bot_id}")
+        #q2 = {'participant1.peer.id': bot_id}
+        #args = {'$or': [{'participant1.peer': bot_id}, {'participant2.peer': bot_id}]}
+        #args = ()
+        #convs = Conversation.objects(Q(participant1=bot_id) | Q(participant2=bot_id))
+    #bot_id = bot_ids[1]
+    #args = {'participant1__peer__exists': True, 'participant1__peer': bot_id}
+    #convs = Conversation.objects(**args)
+
+    #argzz = {'pk': 'stube91cfb90-8f4d-4d1f-9991-1b57a7823d14'}
+    #big_bots = Bot.objects(**argzz)
+    #print(big_bots)
+    #big_bot = big_bots[0]
+
+    #export_date = '2018-06-27'
+
+    #datetime_begin = datetime.strptime(f'{export_date}_00:00:00.000000', "%Y-%m-%d_%H:%M:%S.%f")
+    #datetime_end = datetime.strptime(f'{export_date}_23:59:59.999999', "%Y-%m-%d_%H:%M:%S.%f")
+    #q_dt_args = {'start_time__gte': datetime_begin, 'start_time__lte': datetime_end}
+    #q_p1_args = {'participant1__peer': big_bot}
+    #q_p2_args = {'participant2__peer': big_bot}
+    #args = {'start_time__gte': datetime_begin, 'start_time__lte': datetime_end, 'participant2__peer': big_bot}
+
+    #q_dt = Q(**q_dt_args)
+    #q_p1 = Q(**q_p1_args)
+    #q_p2 = Q(**q_p2_args)
+
+    #convs = Conversation.objects(**args)
+    #convs = Conversation.objects(q_dt & (q_p1 | q_p2))
+
+    #conv = convs[0]
+    #part = type(conv.participant2.peer)
+
+    #profiles = PersonProfile.objects()
+    #prof1 = profiles[0]
+    #print(str(prof1.pk))
+    #result = convs
+
+    result = convs
+    return result

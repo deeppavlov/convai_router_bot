@@ -104,6 +104,11 @@ def handle_training_conversations(args):
     print(f'Training and validation datasets for {args.date} saved in {save_dir}')
 
 
+def handle_bot_scores(args):
+    scores = util.export_bot_scores()
+    print(scores)
+
+
 def setup_argparser():
     parser = argparse.ArgumentParser(description='ConvAI system management tool')
     parser.add_argument('--mongo-uri',
@@ -247,6 +252,16 @@ def setup_argparser():
                                         default=0.8,
                                         help='Dialogs in training/validation datasets rate. Default is %(default)s')
     training_conversations.set_defaults(func=handle_training_conversations)
+
+    bot_scores = subparsers.add_parser('bot-scores',
+                                       help='Export dayly and total bot scores',
+                                       description='Export dayly and total bot scores')
+    bot_scores.add_argument('-t',
+                            '--target',
+                            type=str,
+                            default='~/router_bot_export',
+                            help='Target dir for export. Default is %(default)s')
+    bot_scores.set_defaults(func=handle_bot_scores)
 
     return parser
 
