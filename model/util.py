@@ -251,5 +251,7 @@ def export_bot_scores(date_begin=None, date_end=None):
         bot_scores[bot_id]['profile_selected_score'] = 0 if len(profile_selected_scores) == 0 else \
             sum(profile_selected_scores) / len(profile_selected_scores)
 
-    return {'scores': bot_scores, 'convs': convs}
-    # return bot_scores
+    # ===== maint =====
+    # return {'scores': bot_scores, 'convs': convs}
+
+    return bot_scores

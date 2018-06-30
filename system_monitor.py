@@ -112,7 +112,7 @@ def handle_bot_scores(args):
         save_dir.mkdir(parents=True)
 
     begin_name_part = '' if args.begin is None else f'_{args.begin}'
-    end_name_part = '' if args.end is None else f'_{args.begin}'
+    end_name_part = '' if args.end is None else f'_{args.end}'
     save_path = save_dir.joinpath(f'bot_scores{begin_name_part}{end_name_part}.json')
 
     scores = util.export_bot_scores(args.begin, args.end)
