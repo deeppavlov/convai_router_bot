@@ -87,10 +87,13 @@ def handle_training_conversations(args):
     if not save_dir.is_dir():
         save_dir.mkdir(parents=True)
 
-    save_path_train = save_dir.joinpath(f'{args.date}_train.json')
-    save_path_valid = save_dir.joinpath(f'{args.date}_valid.json')
+    begin_name_part = '' if args.begin is None else f'_{args.begin}'
+    end_name_part = '' if args.end is None else f'_{args.end}'
 
-    convs = util.export_training_conversations(args.date)
+    save_path_train = save_dir.joinpath(f'export{begin_name_part}{end_name_part}_train.json')
+    save_path_valid = save_dir.joinpath(f'export{begin_name_part}{end_name_part}_valid.json')
+
+    convs = util.export_training_conversations(args.begin, args.end)
     convs_num_train = round(len(convs) * args.rate)
     convs_train = convs[:convs_num_train]
     convs_valid = convs[convs_num_train:]
@@ -101,7 +104,7 @@ def handle_training_conversations(args):
     with open(save_path_valid, 'w') as f_valid:
         json.dump(convs_valid, f_valid)
 
-    print(f'Training and validation datasets for {args.date} saved in {save_dir}')
+    print(f'Training and validation datasets for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
 
 
 def handle_bot_scores(args):
@@ -251,10 +254,16 @@ def setup_argparser():
     training_conversations = subparsers.add_parser('training-dialogs',
                                                    help='Export training conversations for given date',
                                                    description='Export training conversations for given date')
-    training_conversations.add_argument('-d',
-                                        '--date',
+    training_conversations.add_argument('-b',
+                                        '--begin',
                                         type=str,
-                                        help='Date of dialogs occurence in YYYY-MM-DD format')
+                                        default=None,
+                                        help='Begin or exact date of export interval in YYYY-MM-DD format. Default is %(default)s')
+    training_conversations.add_argument('-e',
+                                        '--end',
+                                        type=str,
+                                        default=None,
+                                        help='End date of export interval in YYYY-MM-DD format Default is %(default)s')
     training_conversations.add_argument('-t',
                                         '--target',
                                         type=str,

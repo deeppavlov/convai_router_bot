@@ -142,12 +142,19 @@ def import_profiles(stream: Union[TextIO, StringIO]):
     return PersonProfile.objects.insert(list(profiles))
 
 
-def export_training_conversations(export_date):
+def export_training_conversations(date_begin=None, date_end=None):
     training_convs = []
 
-    datetime_begin = datetime.strptime(f'{export_date}_00:00:00.000000', "%Y-%m-%d_%H:%M:%S.%f")
-    datetime_end = datetime.strptime(f'{export_date}_23:59:59.999999', "%Y-%m-%d_%H:%M:%S.%f")
+    if (date_begin is None) and (date_end is None):
+        date_begin = '1900-01-01'
+        date_end = '2500-12-31'
+    elif (date_begin is not None) and (date_end is None):
+        date_end = date_begin
+
+    datetime_begin = datetime.strptime(f'{date_begin}_00:00:00.000000', "%Y-%m-%d_%H:%M:%S.%f")
+    datetime_end = datetime.strptime(f'{date_end}_23:59:59.999999', "%Y-%m-%d_%H:%M:%S.%f")
     args = {'start_time__gte': datetime_begin, 'start_time__lte': datetime_end}
+
     convs = Conversation.objects(**args)
 
     for conv in convs:
@@ -173,7 +180,7 @@ def export_training_conversations(export_date):
 
 
 def export_bot_scores(date_begin=None, date_end=None):
-    # TODO: refactor with $lookup
+    # TODO: refactor with pipeline
     bot_scores = {}
 
     # ===== maint =====
