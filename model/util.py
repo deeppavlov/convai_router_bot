@@ -142,7 +142,7 @@ def import_profiles(stream: Union[TextIO, StringIO]):
     return PersonProfile.objects.insert(list(profiles))
 
 
-def export_training_conversations(date_begin=None, date_end=None):
+def export_training_conversations(date_begin=None, date_end=None, reveal_sender=False):
     training_convs = []
 
     if (date_begin is None) and (date_end is None):
@@ -163,15 +163,24 @@ def export_training_conversations(date_begin=None, date_end=None):
             'dialog': []
         }
         participants = {}
-        participants[str(conv.participant1.peer.id)] = 'participant1'
-        participants[str(conv.participant2.peer.id)] = 'participant2'
+        participants[conv.participant1.peer] = 'participant1'
+        participants[conv.participant2.peer] = 'participant2'
+
+        human_bot = {
+            Bot: 'Bot',
+            User: 'Human'
+        }
 
         for msg in conv.messages:
             training_message = {
                 'id': msg.msg_id,
-                'sender': participants[str(msg.sender.id)],
+                'sender': participants[msg.sender],
                 'text': msg.text
             }
+
+            if reveal_sender:
+                training_message['sender_class'] = human_bot[msg.sender.__class__]
+
             training_conv['dialog'].append(training_message)
 
         training_convs.append(training_conv)
