@@ -105,7 +105,7 @@ def handle_training_conversations(args):
 
 
 def handle_bot_scores(args):
-    scores = util.export_bot_scores()
+    scores = util.export_bot_scores(args.begin, args.end)
     print(scores)
 
 
@@ -256,6 +256,17 @@ def setup_argparser():
     bot_scores = subparsers.add_parser('bot-scores',
                                        help='Export dayly and total bot scores',
                                        description='Export dayly and total bot scores')
+
+    bot_scores.add_argument('-b',
+                            '--begin',
+                            type=str,
+                            default=None,
+                            help='Begin or exact date of report interval in YYYY-MM-DD format. Default is %(default)s')
+    bot_scores.add_argument('-e',
+                            '--end',
+                            type=str,
+                            default=None,
+                            help='End date of report interval in YYYY-MM-DD format Default is %(default)s')
     bot_scores.add_argument('-t',
                             '--target',
                             type=str,

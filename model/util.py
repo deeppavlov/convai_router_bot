@@ -172,8 +172,11 @@ def export_training_conversations(export_date):
     return training_convs
 
 
-def export_bot_scores():
+def export_bot_scores(date_begin=None, date_end=None):
     # TODO: refactor with $lookup
+    bot_scores = {}
+
+    # ===== maint =====
     convs = {}
 
     profiles_obj = PersonProfile.objects
@@ -181,10 +184,28 @@ def export_bot_scores():
 
     for bot in Bot.objects:
         bot_id = str(bot.id)
+        bot_scores[bot_id] = {}
 
+        # ===== maint =====
+        convs[bot_id] = {}
+
+        if (date_begin is None) and (date_end is None):
+            date_begin = '1900-01-01'
+            date_end = '2500-12-31'
+        elif (date_begin is not None) and (date_end is None):
+            date_end = date_begin
+
+        datetime_begin = datetime.strptime(f'{date_begin}_00:00:00.000000', "%Y-%m-%d_%H:%M:%S.%f")
+        datetime_end = datetime.strptime(f'{date_end}_23:59:59.999999', "%Y-%m-%d_%H:%M:%S.%f")
+        date_args = {'start_time__gte': datetime_begin, 'start_time__lte': datetime_end}
+
+        q_date = Q(**date_args)
         q_participant1 = Q(participant1__peer=bot)
         q_participant2 = Q(participant2__peer=bot)
-        bot_convs = Conversation.objects(q_participant1 | q_participant2)
+        bot_convs = Conversation.objects(q_date & (q_participant1 | q_participant2))
+
+        user_eval_scores = []
+        profile_selected_scores = []
 
         for bot_conv in bot_convs:
             bot_conv_id = str(bot_conv.id)
@@ -196,66 +217,39 @@ def export_bot_scores():
                 peer_bot = bot_conv.participant2
                 peer_user = bot_conv.participant1
 
-            bot_profile = peer_bot.assigned_profile
             user_eval_score = peer_user.dialog_evaluation_score
-            user_profile_selected = peer_user.other_peer_profile_selected
-            user_profile_selected_parts = peer_user.other_peer_profile_selected_parts
+            bot_profile = peer_bot.assigned_profile
+            user_selected_profile = peer_user.other_peer_profile_selected
+            user_selected_profile_parts = peer_user.other_peer_profile_selected_parts
 
-            convs
+            if user_eval_score is not None:
+                user_eval_scores.append(int(user_eval_score))
 
-            #try:
-            #    print(part_user.other_peer_profile_selected.sentences)
-            #except errors.DoesNotExist:
-            #    print('errors.DoesNotExist:')
-            #except AttributeError:
-            #    print('AttributeError:')
+            if user_selected_profile is not None:
+                profile_selected_score = int(user_selected_profile == bot_profile)
+                profile_selected_scores.append(profile_selected_score)
+            elif len(user_selected_profile_parts) > 0:
+                profile_set = set(list(bot_profile.sentences))
+                selected_set = set(list(user_selected_profile_parts))
+                matched_set = profile_set.intersection(selected_set)
 
-            #convs[bot_id] = type(bot_conv.participant2.peer)
+                profile_selected_score = len(matched_set) / len(profile_set)
+                profile_selected_scores.append(profile_selected_score)
+            else:
+                profile_selected_score = None
 
+            # ===== maint =====
+            convs[bot_id][bot_conv_id] = {
+                'user_eval_score': user_eval_score,
+                'profile_selected_score': profile_selected_score,
+                'profile_set': list(bot_profile.sentences),
+                'selected_set': list(user_selected_profile_parts)
+            }
 
-    #bot_ids = [bot.id for bot in Bot.objects]
-    #participant1 = Conversation.participant1.peer.id
-    #participant2 = Conversation.participant2.peer.id
+        bot_scores[bot_id]['user_eval_score'] = 0 if len(user_eval_scores) == 0 else \
+            sum(user_eval_scores) / len(user_eval_scores)
+        bot_scores[bot_id]['profile_selected_score'] = 0 if len(profile_selected_scores) == 0 else \
+            sum(profile_selected_scores) / len(profile_selected_scores)
 
-    #for bot_id in bot_ids:
-
-        #q1 = Q("{'participant1.peer.id': bot_id}")
-        #q2 = {'participant1.peer.id': bot_id}
-        #args = {'$or': [{'participant1.peer': bot_id}, {'participant2.peer': bot_id}]}
-        #args = ()
-        #convs = Conversation.objects(Q(participant1=bot_id) | Q(participant2=bot_id))
-    #bot_id = bot_ids[1]
-    #args = {'participant1__peer__exists': True, 'participant1__peer': bot_id}
-    #convs = Conversation.objects(**args)
-
-    #argzz = {'pk': 'stube91cfb90-8f4d-4d1f-9991-1b57a7823d14'}
-    #big_bots = Bot.objects(**argzz)
-    #print(big_bots)
-    #big_bot = big_bots[0]
-
-    #export_date = '2018-06-27'
-
-    #datetime_begin = datetime.strptime(f'{export_date}_00:00:00.000000', "%Y-%m-%d_%H:%M:%S.%f")
-    #datetime_end = datetime.strptime(f'{export_date}_23:59:59.999999', "%Y-%m-%d_%H:%M:%S.%f")
-    #q_dt_args = {'start_time__gte': datetime_begin, 'start_time__lte': datetime_end}
-    #q_p1_args = {'participant1__peer': big_bot}
-    #q_p2_args = {'participant2__peer': big_bot}
-    #args = {'start_time__gte': datetime_begin, 'start_time__lte': datetime_end, 'participant2__peer': big_bot}
-
-    #q_dt = Q(**q_dt_args)
-    #q_p1 = Q(**q_p1_args)
-    #q_p2 = Q(**q_p2_args)
-
-    #convs = Conversation.objects(**args)
-    #convs = Conversation.objects(q_dt & (q_p1 | q_p2))
-
-    #conv = convs[0]
-    #part = type(conv.participant2.peer)
-
-    #profiles = PersonProfile.objects()
-    #prof1 = profiles[0]
-    #print(str(prof1.pk))
-    #result = convs
-
-    result = convs
+    result = {'scores': bot_scores, 'convs': convs}
     return result
