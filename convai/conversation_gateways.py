@@ -446,7 +446,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         for user in users:
             messenger = self._messenger_for_user(user)
             messages_to_send.append(messenger.send_message_to_user(user,
-                                                                   f'Your secret id: {str(conversation_id)}',
+                                                                   f'Your secret id: {hex(conversation_id)}',
                                                                    False))
             messages_to_send.append(messenger.send_message_to_user(user,
                                                                    thanks_text,
