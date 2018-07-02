@@ -3,6 +3,7 @@ import enum
 import itertools
 import logging
 import random
+import uuid
 from datetime import datetime, timedelta
 from numbers import Number
 from typing import Dict, Union, List, Optional
@@ -360,6 +361,7 @@ class DialogManager(AbstractDialogHandler):
                     await run_sync_in_executor(lambda: Conversation.objects(conversation_id=conv_id).count()) == 0:
                 break
         conversation.conversation_id = conv_id
+        conversation.conversation_uuid = uuid.uuid4()
         self._active_dialogs[conv_id] = conversation
 
         for p in conversation.participants:

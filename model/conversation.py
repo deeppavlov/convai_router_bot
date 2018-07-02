@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List
 
 from mongoengine import EmbeddedDocumentField, EmbeddedDocumentListField, DateTimeField, Document, ValidationError, \
-    IntField
+    IntField, UUIDField
 
 from .conversation_peer import ConversationPeer
 from .message import Message
@@ -12,6 +12,7 @@ class Conversation(Document):
     """A single conversation between 2 participants"""
 
     conversation_id: int = IntField(required=True, unique=True)
+    conversation_uuid = UUIDField()
     participant1: ConversationPeer = EmbeddedDocumentField(ConversationPeer, required=True)
     participant2: ConversationPeer = EmbeddedDocumentField(ConversationPeer, required=True)
     messages: List[Message] = EmbeddedDocumentListField(Message, required=True)
