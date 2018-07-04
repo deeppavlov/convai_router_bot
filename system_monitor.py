@@ -125,8 +125,11 @@ def handle_export_conversations(args):
         fieldnames = ['INPUT:text', 'GOLDEN:result', 'HINT:text', 'TASK:id', 'TASK:overlap', 'TASK:remaining_overlap']
         writer = csv.DictWriter(f_tsv,
                                 fieldnames=fieldnames,
-                                delimiter='\t',
-                                quotechar=chr(1))
+                                dialect='excel-tab',
+                                #delimiter='\t',
+                                #quotechar='"'
+                                quotechar=chr(1)
+                                )
         writer.writeheader()
 
         for dialog in convs:
@@ -137,7 +140,9 @@ def handle_export_conversations(args):
                 text = replica['text']
                 replicas.append(f'<span class={sender.lower()}>{sender}: {text}</span><br>')
 
-            replicas_string = '\n'.join(replicas)
+            #replicas_delimiter = chr(10)
+            replicas_delimiter = ''
+            replicas_string = replicas_delimiter.join(replicas)
             replicas_string = f'{chr(34)}{replicas_string}{chr(34)}'
 
             writer.writerow({'INPUT:text': replicas_string,

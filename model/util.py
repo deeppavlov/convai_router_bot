@@ -159,7 +159,7 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
 
     for conv in convs:
         training_conv = {
-            'dialog_id': str(conv.id),
+            'dialog_id': str(hex(conv.conversation_id)),
             'dialog': []
         }
         participants = {}
