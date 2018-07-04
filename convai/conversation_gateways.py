@@ -282,7 +282,16 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'help requested')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        help_txt = "Some help message. To be filled..."
+        help_txt = 'This is personalised chatbot - chatbot with a pre-defined personality. Please have a chat with it and evaluate its performance.\n' \
+                    'To begin a conversation: enter "/begin".\n' \
+                    'In the beginning of a conversation you will get a description of a person. ' \
+                    'During a dialogue you need to act as if you were this person ' \
+                    '(e.g. if your profile says "I study arts in a university", you can say that you are an arts student).\n' \
+                    'To end a conversation: enter "/end".\n' \
+                    'When the dialogue is finished, you will be asked to evaluate it:\n' \
+                    '1) you will need to rate a conversation from 1 (bad) to 5 (excellent)\n' \
+                    '2) you will be given two descriptions of a person. Choose the one which belongs to your peer.\n' \
+                    'To complain about a chatbots bad behaviour (insults, profanities, etc.) enter "/complain".'
         if messenger.messenger_specific_help:
             help_txt += '\n\n' + messenger.messenger_specific_help
         await messenger.send_message_to_user(user, help_txt, False)
@@ -291,7 +300,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'welcome message requested')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        welcome_txt = "Some welcome message. To be filled..."
+        welcome_txt = 'Hello! This is personalised chatbot. Please enter "/begin" to start a conversation.'
         await messenger.send_message_to_user(user, welcome_txt, False, keyboard_buttons=['/begin', '/help'])
 
     async def on_complain(self, user: User):
@@ -584,7 +593,10 @@ class BotsGateway(AbstractGateway):
         def _text_to_trigrams(text: str) -> Set[str]:
             preprocessed_text = re.sub(r'\W+', ' ', text).lower()
             words = preprocessed_text.split(' ')
-            return {tuple(words[i:i + 3]) for i in range(len(words) - 3)}
+            n_gr = 5
+            if len(words) < n_gr:
+                n_gr = len(words)
+            return {tuple(words[i:i + n_gr]) for i in range(len(words) - n_gr + 1)}
 
     _active_chats_trigrams: DefaultDict[int, Dict[str, TrigramsStorage]]
     _n_trigrams_from_profile_threshold: int
