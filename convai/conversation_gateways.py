@@ -599,7 +599,10 @@ class BotsGateway(AbstractGateway):
         def _text_to_trigrams(text: str) -> Set[str]:
             preprocessed_text = re.sub(r'\W+', ' ', text).lower()
             words = preprocessed_text.split(' ')
-            return {tuple(words[i:i + 3]) for i in range(len(words) - 3)}
+            n_gr = 5
+            if len(words) < n_gr:
+                n_gr = len(words)
+            return {tuple(words[i:i + n_gr]) for i in range(len(words) - n_gr + 1)}
 
     _active_chats_trigrams: DefaultDict[int, Dict[str, TrigramsStorage]]
     _n_trigrams_from_profile_threshold: int
