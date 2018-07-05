@@ -333,7 +333,7 @@ def setup_argparser():
                                         help='Target dir for export. Default is %(default)s')
     training_conversations.add_argument('-r',
                                         '--rate',
-                                        type=int,
+                                        type=float,
                                         default=0.8,
                                         help='Dialogs in training/validation datasets rate. Default is %(default)s')
     training_conversations.set_defaults(func=handle_training_conversations)

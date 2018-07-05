@@ -143,6 +143,7 @@ def import_profiles(stream: Union[TextIO, StringIO]):
 
 
 def export_training_conversations(date_begin=None, date_end=None, reveal_sender=False):
+    # TODO: merge with export_bot_scores
     training_convs = []
 
     if (date_begin is None) and (date_end is None):
@@ -162,6 +163,33 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             'dialog_id': str(hex(conv.conversation_id)),
             'dialog': []
         }
+
+        if isinstance(conv.participant1.peer, Bot):
+            peer_bot = conv.participant1
+            peer_user = conv.participant2
+        else:
+            peer_bot = conv.participant2
+            peer_user = conv.participant1
+
+        user_eval_score = peer_user.dialog_evaluation_score
+        bot_profile = peer_bot.assigned_profile
+        user_selected_profile = peer_user.other_peer_profile_selected
+        user_selected_profile_parts = peer_user.other_peer_profile_selected_parts
+
+        if user_selected_profile is not None:
+            profile_selected_score = int(user_selected_profile == bot_profile)
+        elif len(user_selected_profile_parts) > 0:
+            profile_set = set(list(bot_profile.sentences))
+            selected_set = set(list(user_selected_profile_parts))
+            matched_set = profile_set.intersection(selected_set)
+
+            profile_selected_score = len(matched_set) / len(profile_set)
+        else:
+            profile_selected_score = ''
+
+        training_conv['eval_score'] = user_eval_score
+        training_conv['profile_match'] = profile_selected_score
+
         participants = {}
         participants[conv.participant1.peer] = 'participant1'
         participants[conv.participant2.peer] = 'participant2'
