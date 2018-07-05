@@ -594,9 +594,11 @@ class BotsGateway(AbstractGateway):
             preprocessed_text = re.sub(r'\W+', ' ', text).lower()
             words = preprocessed_text.split(' ')
             n_gr = 5
-            if len(words) < n_gr:
-                n_gr = len(words)
-            return {tuple(words[i:i + n_gr]) for i in range(len(words) - n_gr + 1)}
+            if len(words) <= n_gr:
+                n_gr_set = {tuple(words)}
+            else:
+                n_gr_set = {tuple(words[i:i + n_gr]) for i in range(len(words) - n_gr)}
+            return n_gr_set
 
     _active_chats_trigrams: DefaultDict[int, Dict[str, TrigramsStorage]]
     _n_trigrams_from_profile_threshold: int
