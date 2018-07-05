@@ -152,6 +152,7 @@ def handle_export_conversations(args):
 
         print(f'Export conversations for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
 
+
 def handle_bot_scores(args):
     save_dir = Path(args.target).expanduser().resolve()
     save_dir = save_dir.joinpath('bot_scores')
