@@ -250,10 +250,12 @@ def export_bot_scores(date_begin=None, date_end=None):
 
         user_eval_scores = []
         profile_selected_scores = []
+        scored_dialogs = 0
 
         for bot_conv in bot_convs:
             bot_conv_id = str(bot_conv.id)
             num_messages = len(bot_conv.messages)
+            count_as_scored = False
 
             if num_messages >= 3:
                 if isinstance(bot_conv.participant1.peer, Bot):
@@ -271,10 +273,12 @@ def export_bot_scores(date_begin=None, date_end=None):
                 if user_eval_score is not None:
                     eval_score_norm = (int(user_eval_score) - 1) / 4
                     user_eval_scores.append(eval_score_norm)
+                    count_as_scored = count_as_scored | True
 
                 if user_selected_profile is not None:
                     profile_selected_score = int(user_selected_profile == bot_profile)
                     profile_selected_scores.append(profile_selected_score)
+                    count_as_scored = count_as_scored | True
                 elif len(user_selected_profile_parts) > 0:
                     profile_set = set(list(bot_profile.sentences))
                     selected_set = set(list(user_selected_profile_parts))
@@ -282,8 +286,11 @@ def export_bot_scores(date_begin=None, date_end=None):
 
                     profile_selected_score = len(matched_set) / len(profile_set)
                     profile_selected_scores.append(profile_selected_score)
+                    count_as_scored = count_as_scored | True
                 else:
                     profile_selected_score = None
+
+                scored_dialogs = scored_dialogs + (int(count_as_scored))
 
                 # ===== maint =====
                 convs[bot_id][bot_conv_id] = {
@@ -298,6 +305,7 @@ def export_bot_scores(date_begin=None, date_end=None):
             sum(user_eval_scores) / len(user_eval_scores)
         bot_scores[bot_id]['profile_selected_score'] = 0 if len(profile_selected_scores) == 0 else \
             sum(profile_selected_scores) / len(profile_selected_scores)
+        bot_scores[bot_id]['scored_dialogs'] = scored_dialogs
 
     # ===== maint =====
     # return {'scores': bot_scores, 'convs': convs}
