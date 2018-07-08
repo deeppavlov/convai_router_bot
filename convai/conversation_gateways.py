@@ -448,15 +448,17 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         await messenger.request_dialog_evaluation(user, msg, scores_range)
 
     async def finish_conversation(self, conversation_id: int):
+        # TODO: make sevret id printing switchable via config
         self.log.info(f'dialog {conversation_id} finished. Sending thank you message and cleaning up')
         users = [u for u, c in self._conversations.items() if c.conv_id == conversation_id]
-        thanks_text = 'Dialog is finished. Thank you for participation! Save somewhere your secret conversation ID.'
+        # thanks_text = 'Dialog is finished. Thank you for participation! Save somewhere your secret conversation ID.'
+        thanks_text = 'Dialog is finished. Thank you for participation!'
         messages_to_send = []
         for user in users:
             messenger = self._messenger_for_user(user)
-            messages_to_send.append(messenger.send_message_to_user(user,
-                                                                   f'Your secret id: {hex(conversation_id)}',
-                                                                   False))
+            # messages_to_send.append(messenger.send_message_to_user(user,
+            #                                                        f'Your secret id: {hex(conversation_id)}',
+            #                                                        False))
             messages_to_send.append(messenger.send_message_to_user(user,
                                                                    thanks_text,
                                                                    False,
