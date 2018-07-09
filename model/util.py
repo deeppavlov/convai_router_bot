@@ -171,6 +171,9 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             peer_bot = conv.participant2
             peer_user = conv.participant1
 
+        training_conv['bot_profile'] = list(peer_bot.assigned_profile.sentences)
+        training_conv['user_profile'] = list(peer_user.assigned_profile.sentences)
+
         user_eval_score = peer_user.dialog_evaluation_score
         bot_profile = peer_bot.assigned_profile
         user_selected_profile = peer_user.other_peer_profile_selected
