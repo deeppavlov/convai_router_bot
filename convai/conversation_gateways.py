@@ -300,19 +300,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'welcome message requested')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        welcome_txt = 'This is personalised chatbot - chatbot with a pre-defined personality. ' \
-                      'Please have a chat with it and evaluate its performance.\n' \
-                      'To begin a conversation: enter "/begin".\n' \
-                      'In the beginning of a conversation you will get a description of a person. ' \
-                      'During a dialogue you need to act as if you were this person ' \
-                      '(e.g.if your profile says "I study arts in a university", ' \
-                      'you can say that you are an arts student).\n' \
-                      'To end a conversation: enter "/end".\n' \
-                      'When the dialogue is finished, you  will be asked to evaluate it:\n' \
-                      '1) you will need to rate a conversation from 1 (bad) to 5 (excellent)\n' \
-                      '2) you will be given two descriptions of a person. Choose the one which belongs to your peer\n.' \
-                      'To complain about a chatbots bad behaviour(insults, profanities, etc.) enter "/complain".\n\n' \
-                      '1. To start a dialog type or choose  a "/begin" command.\n' \
+        welcome_txt = '1. To start a dialog type or choose  a "/begin" command.\n' \
                       '2. You will be connected to a peer or, if no peer is available at the moment, ' \
                       'you’ll receive the message "Please wait for you partner".\n' \
                       '3. Peer might be a bot or another human evaluator.\n' \
@@ -331,7 +319,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                       '11. If your peer ends the dialog before you, you will also receive a scoring request.\n' \
                       '12. Your conversations with a peer will be recorded for further use. ' \
                       'By starting a chat you give permission for your anonymised conversation data to be ' \
-                      'released publicly under Apache License Version 2.0 https://www.apache.org / licenses / LICENSE - 2.0.\n'
+                      'released publicly under Apache License Version 2.0 https://www.apache.org / licenses / LICENSE - 2.0.'
 
         await messenger.send_message_to_user(user, welcome_txt, False, keyboard_buttons=['/begin', '/help'])
 
