@@ -330,11 +330,17 @@ class DialogManager(AbstractDialogHandler):
             await self.humans_gateway.on_conversation_failed(user,
                                                              AbstractGateway.ConversationFailReason.PEER_NOT_FOUND)
             return
-        found = False
-        bot = None  # Silence PyCharm warning
-        while not found:
-            bot = await run_sync_in_executor(lambda: bots[random.randrange(bots_count)])
-            found = (await run_sync_in_executor(lambda: BannedPair.objects(user=user, bot=bot).count())) == 0
+
+        if user.assigned_test_bot:
+            token = user.assigned_test_bot
+            bot = Bot.objects.with_id(token)
+        else:
+            found = False
+            bot = None  # Silence PyCharm warning
+            while not found:
+                bot = await run_sync_in_executor(lambda: bots[random.randrange(bots_count)])
+                found = (await run_sync_in_executor(lambda: BannedPair.objects(user=user, bot=bot).count())) == 0
+
         await self._instantiate_dialog(user, bot)
 
     def _gateway_for_peer(self, peer: Union[User, Bot, ConversationPeer]):

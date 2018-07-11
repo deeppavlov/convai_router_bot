@@ -64,6 +64,12 @@ def handle_ban_human_bot(args):
     print(args.formatter.format_entity(banned))
 
 
+def handle_set_default_bot(args):
+    updated = util.set_default_bot(args.platform, args.id, args.token)
+    print("Default bot was set:")
+    #print(args.formatter.format_entity(updated))
+
+
 def handle_banlist_bot(args):
     print(args.formatter.format_entity(Bot.objects(banned=True)))
 
@@ -262,6 +268,20 @@ def setup_argparser():
     parser_ban_user_bot.add_argument('token',
                                      help='Bot access token')
     parser_ban_user_bot.set_defaults(func=handle_ban_human_bot)
+
+    parser_set_default_bot = subparsers.add_parser('set-default-bot',
+                                                   help='Set default bot for user to interact with',
+                                                   description='Set default bot for user to interact with')
+    parser_set_default_bot.add_argument('platform',
+                                        choices=UserPK.PLATFORM_CHOICES,
+                                        help='User platform')
+    parser_set_default_bot.add_argument('id',
+                                        help='User ID within the specified platform')
+    parser_set_default_bot.add_argument('-t',
+                                        '--token',
+                                        help='Bot access token. Default is %(default)s',
+                                        default=None)
+    parser_set_default_bot.set_defaults(func=handle_set_default_bot)
 
     parser_banlist = subparsers.add_parser('banlist',
                                            help='List banned humans, bots or human-bot pairs',

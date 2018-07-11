@@ -137,6 +137,12 @@ def ban_human_bot(platform, user_id, token):
     return BannedPair(user=human, bot=bot).save()
 
 
+def set_default_bot(platform, user_id, token):
+    user = User.objects.get(user_key=UserPK(user_id=user_id, platform=platform))
+    bot = Bot.objects.with_id(token)
+    return user.update(assigned_test_bot=bot)
+
+
 def import_profiles(stream: Union[TextIO, StringIO]):
     profiles = map(lambda x: PersonProfile(sentences=x.splitlines()), stream.read().split('\n\n'))
     return PersonProfile.objects.insert(list(profiles))
