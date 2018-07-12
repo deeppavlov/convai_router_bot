@@ -65,9 +65,8 @@ def handle_ban_human_bot(args):
 
 
 def handle_set_default_bot(args):
-    updated = util.set_default_bot(args.platform, args.id, args.token)
-    print("Default bot was set:")
-    #print(args.formatter.format_entity(updated))
+    result = util.set_default_bot(args.platform, args.id, args.token)
+    print(f'Default bot {args.token} was set for user {args.id}, {args.platform} platform')
 
 
 def handle_banlist_bot(args):
