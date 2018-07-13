@@ -1,4 +1,6 @@
-from mongoengine import EmbeddedDocument, StringField, DynamicDocument, BooleanField, EmbeddedDocumentField
+from mongoengine import EmbeddedDocument, StringField, DynamicDocument, BooleanField, EmbeddedDocumentField, ReferenceField
+
+from .bot import Bot
 
 
 class UserPK(EmbeddedDocument):
@@ -28,6 +30,7 @@ class User(DynamicDocument):
     user_key: UserPK = EmbeddedDocumentField(UserPK, unique=True, required=True)
     username: str = StringField()
     banned: bool = BooleanField(default=False)
+    assigned_test_bot = ReferenceField(Bot, required=False)
 
     def __repr__(self):
         return f'User[{repr(self.user_key)}]'

@@ -323,7 +323,10 @@ class DialogManager(AbstractDialogHandler):
     async def _start_dialog_with_bot(self, user: User):
         log.info(f'starting dialog with bot')
         self._unschedule_lobby_timeout(user)
-        bots = await run_sync_in_executor(Bot.objects, banned=False)
+        if user.assigned_test_bot:
+            bots = await run_sync_in_executor(Bot.objects, banned=False, token=user.assigned_test_bot.token)
+        else:
+            bots = await run_sync_in_executor(Bot.objects, banned=False)
         bots_count = await run_sync_in_executor(bots.count)
         if self.bots_gateway is None or bots_count == 0:
             log.warning(f'no bots found or bots gateway is None')

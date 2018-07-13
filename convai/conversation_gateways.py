@@ -282,7 +282,16 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'help requested')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        help_txt = "Some help message. To be filled..."
+        help_txt = 'This is personalised chatbot - chatbot with a pre-defined personality. Please have a chat with it and evaluate its performance.\n' \
+                    'To begin a conversation: enter "/begin".\n' \
+                    'In the beginning of a conversation you will get a description of a person. ' \
+                    'During a dialogue you need to act as if you were this person ' \
+                    '(e.g. if your profile says "I study arts in a university", you can say that you are an arts student).\n' \
+                    'To end a conversation: enter "/end".\n' \
+                    'When the dialogue is finished, you will be asked to evaluate it:\n' \
+                    '1) you will need to rate a conversation from 1 (bad) to 5 (excellent)\n' \
+                    '2) you will be given two descriptions of a person. Choose the one which belongs to your peer.\n' \
+                    'To complain about a chatbots bad behaviour (insults, profanities, etc.) enter "/complain".'
         if messenger.messenger_specific_help:
             help_txt += '\n\n' + messenger.messenger_specific_help
         await messenger.send_message_to_user(user, help_txt, False)
@@ -291,7 +300,27 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'welcome message requested')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        welcome_txt = "Some welcome message. To be filled..."
+        welcome_txt = '1. To start a dialog type or choose  a "/begin" command.\n' \
+                      '2. You will be connected to a peer or, if no peer is available at the moment, ' \
+                      'you’ll receive the message "Please wait for you partner".\n' \
+                      '3. Peer might be a bot or another human evaluator.\n' \
+                      '4. After you were connected with your peer you will receive a starting message - ' \
+                      'a description of a person.\n' \
+                      '5. During a dialogue you need to act as if you were this person ' \
+                      '(e.g.if your profile says "I study arts in a university", ' \
+                      'you can say that you are an arts student).\n' \
+                      '6. Please score every utterance of your peer with a ‘thumb UP’ button if you like it, ' \
+                      'and ‘thumb DOWN’ button in the opposite case.\n' \
+                      '7. To finish the conversation type or choose a command / end.\n' \
+                      '8. If you were insulted type / complain or choose command / complain from menu.\n' \
+                      '9. When the conversation is finished, ' \
+                      'you will receive a request to score the overall quality of the dialog from 1 (bad) to 5 (excellent).\n' \
+                      '10. Also you will be given two descriptions of a person. Choose the one which belongs to your peer.\n' \
+                      '11. If your peer ends the dialog before you, you will also receive a scoring request.\n' \
+                      '12. Your conversations with a peer will be recorded for further use. ' \
+                      'By starting a chat you give permission for your anonymised conversation data to be ' \
+                      'released publicly under Apache License Version 2.0 https://www.apache.org / licenses / LICENSE - 2.0.'
+
         await messenger.send_message_to_user(user, welcome_txt, False, keyboard_buttons=['/begin', '/help'])
 
     async def on_complain(self, user: User):
@@ -439,12 +468,17 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         await messenger.request_dialog_evaluation(user, msg, scores_range)
 
     async def finish_conversation(self, conversation_id: int):
+        # TODO: make sevret id printing switchable via config
         self.log.info(f'dialog {conversation_id} finished. Sending thank you message and cleaning up')
         users = [u for u, c in self._conversations.items() if c.conv_id == conversation_id]
+        # thanks_text = 'Dialog is finished. Thank you for participation! Save somewhere your secret conversation ID.'
         thanks_text = 'Dialog is finished. Thank you for participation!'
         messages_to_send = []
         for user in users:
             messenger = self._messenger_for_user(user)
+            # messages_to_send.append(messenger.send_message_to_user(user,
+            #                                                        f'Your secret id: {hex(conversation_id)}',
+            #                                                        False))
             messages_to_send.append(messenger.send_message_to_user(user,
                                                                    thanks_text,
                                                                    False,
@@ -581,7 +615,12 @@ class BotsGateway(AbstractGateway):
         def _text_to_trigrams(text: str) -> Set[str]:
             preprocessed_text = re.sub(r'\W+', ' ', text).lower()
             words = preprocessed_text.split(' ')
-            return {tuple(words[i:i + 3]) for i in range(len(words) - 3)}
+            n_gr = 5
+            if len(words) <= n_gr:
+                n_gr_set = {tuple(words)}
+            else:
+                n_gr_set = {tuple(words[i:i + n_gr]) for i in range(len(words) - n_gr)}
+            return n_gr_set
 
     _active_chats_trigrams: DefaultDict[int, Dict[str, TrigramsStorage]]
     _n_trigrams_from_profile_threshold: int

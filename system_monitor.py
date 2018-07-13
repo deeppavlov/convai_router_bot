@@ -2,6 +2,9 @@
 import argparse
 import os
 import sys
+import json
+import csv
+from pathlib import Path
 
 import mongoengine
 
@@ -61,6 +64,11 @@ def handle_ban_human_bot(args):
     print(args.formatter.format_entity(banned))
 
 
+def handle_set_default_bot(args):
+    result = util.set_default_bot(args.platform, args.id, args.token)
+    print(f'Default bot {args.token} was set for user {args.id}, {args.platform} platform')
+
+
 def handle_banlist_bot(args):
     print(args.formatter.format_entity(Bot.objects(banned=True)))
 
@@ -76,6 +84,113 @@ def handle_banlist_human_bot(args):
 def handle_import_profiles(args):
     profiles = util.import_profiles(args.profiles_file)
     print(f'{len(profiles)} profiles imported')
+
+
+def handle_training_conversations(args):
+    save_dir = Path(args.target).expanduser().resolve()
+    save_dir = save_dir.joinpath('train_valid')
+
+    if not save_dir.is_dir():
+        save_dir.mkdir(parents=True)
+
+    begin_name_part = '' if args.begin is None else f'_{args.begin}'
+    end_name_part = '' if args.end is None else f'_{args.end}'
+
+    save_path_train = save_dir.joinpath(f'export{begin_name_part}{end_name_part}_train.json')
+    save_path_valid = save_dir.joinpath(f'export{begin_name_part}{end_name_part}_valid.json')
+
+    convs = util.export_training_conversations(args.begin, args.end)
+    convs_num_train = round(len(convs) * args.rate)
+    convs_train = convs[:convs_num_train]
+    convs_valid = convs[convs_num_train:]
+
+    with open(save_path_train, 'w') as f_train:
+        json.dump(convs_train, f_train)
+
+    with open(save_path_valid, 'w') as f_valid:
+        json.dump(convs_valid, f_valid)
+
+    print(f'Training and validation datasets for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
+
+
+def handle_export_conversations(args):
+    save_dir = Path(args.target).expanduser().resolve()
+    save_dir = save_dir.joinpath('export_dialogs')
+
+    if not save_dir.is_dir():
+        save_dir.mkdir(parents=True)
+
+    begin_name_part = '' if args.begin is None else f'_{args.begin}'
+    end_name_part = '' if args.end is None else f'_{args.end}'
+    save_path = save_dir.joinpath(f'export{begin_name_part}{end_name_part}.tsv')
+
+    convs = util.export_training_conversations(args.begin, args.end, reveal_sender=True)
+
+    with open(save_path, 'w', newline='') as f_tsv:
+        fieldnames = ['INPUT:text', 'GOLDEN:result', 'HINT:text', 'TASK:id', 'TASK:overlap', 'TASK:remaining_overlap']
+        writer = csv.DictWriter(f_tsv,
+                                fieldnames=fieldnames,
+                                dialect='excel-tab',
+                                #delimiter='\t',
+                                #quotechar='"'
+                                quotechar=chr(1)
+                                )
+        writer.writeheader()
+
+        for dialog in convs:
+            replicas = []
+
+            for replica in dialog['dialog']:
+                sender = replica['sender_class']
+                text = replica['text']
+                replicas.append(f'<span class={sender.lower()}>{sender}: {text}</span><br>')
+
+            #replicas_delimiter = chr(10)
+            replicas_delimiter = ''
+            replicas_string = replicas_delimiter.join(replicas)
+            replicas_string = f'{chr(34)}{replicas_string}{chr(34)}'
+
+            writer.writerow({'INPUT:text': replicas_string,
+                             'TASK:id': dialog['dialog_id'],
+                             'TASK:overlap': 'infinite',
+                             'TASK:remaining_overlap': 'infinite'})
+
+        print(f'Export conversations for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
+
+
+def handle_bot_scores(args):
+    # TODO: Refactor hardcode botname dict
+    save_dir = Path(args.target).expanduser().resolve()
+    save_dir = save_dir.joinpath('bot_scores')
+
+    if not save_dir.is_dir():
+        save_dir.mkdir(parents=True)
+
+    begin_name_part = '' if args.begin is None else f'_{args.begin}'
+    end_name_part = '' if args.end is None else f'_{args.end}'
+    save_path = save_dir.joinpath(f'bot_scores{begin_name_part}{end_name_part}.json')
+
+    scores_raw = util.export_bot_scores(args.begin, args.end)
+
+    bot_names = {
+        "28f4ed5c-405b-4b46-96e7-b77de7782b75": 'baseline',
+        "24480ac9-3c3d-471a-8e24-6215f9ee6dae": 'tensorborne',
+        "53f1d818-b564-486e-ae80-bea8d91465b1": 'NEUROBOTICS',
+        "105561dd-4850-45b4-94be-e767ad48c97a": 'Lost in conversetion',
+        "ad558a10-8a7e-48ac-95a2-3cc9aa318dbd": 'infinity',
+        "00a7a39a-466e-4262-b4d1-ea92f98574d6": 'loopAI',
+        "31f1fbba-624e-4d57-ad5e-f667053b95f1": 'Sonic'
+    }
+
+    scores = {}
+    for bot_id in scores_raw.keys():
+        scores_raw[bot_id]['bot_id'] = bot_id
+        scores[bot_names[bot_id]] = scores_raw[bot_id]
+
+    with open(save_path, 'w') as f_scores:
+        json.dump(scores, f_scores)
+
+    print(f'Bot scores for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
 
 
 def setup_argparser():
@@ -170,6 +285,20 @@ def setup_argparser():
                                      help='Bot access token')
     parser_ban_user_bot.set_defaults(func=handle_ban_human_bot)
 
+    parser_set_default_bot = subparsers.add_parser('set-default-bot',
+                                                   help='Set default bot for user to interact with',
+                                                   description='Set default bot for user to interact with')
+    parser_set_default_bot.add_argument('platform',
+                                        choices=UserPK.PLATFORM_CHOICES,
+                                        help='User platform')
+    parser_set_default_bot.add_argument('id',
+                                        help='User ID within the specified platform')
+    parser_set_default_bot.add_argument('-t',
+                                        '--token',
+                                        help='Bot access token. Default is %(default)s',
+                                        default=None)
+    parser_set_default_bot.set_defaults(func=handle_set_default_bot)
+
     parser_banlist = subparsers.add_parser('banlist',
                                            help='List banned humans, bots or human-bot pairs',
                                            description='List banned humans, bots or human-bot pairs')
@@ -202,6 +331,72 @@ def setup_argparser():
                                         help='Profiles file name. stdin by default',
                                         default=sys.stdin)
     parser_import_profiles.set_defaults(func=handle_import_profiles)
+
+    training_conversations = subparsers.add_parser('training-dialogs',
+                                                   help='Export training conversations for given date or interval',
+                                                   description='Export training conversations for given date or interval')
+    training_conversations.add_argument('-b',
+                                        '--begin',
+                                        type=str,
+                                        default=None,
+                                        help='Begin or exact date of export interval in YYYY-MM-DD format. Default is %(default)s')
+    training_conversations.add_argument('-e',
+                                        '--end',
+                                        type=str,
+                                        default=None,
+                                        help='End date of export interval in YYYY-MM-DD format Default is %(default)s')
+    training_conversations.add_argument('-t',
+                                        '--target',
+                                        type=str,
+                                        default='~/router_bot_export',
+                                        help='Target dir for export. Default is %(default)s')
+    training_conversations.add_argument('-r',
+                                        '--rate',
+                                        type=float,
+                                        default=0.8,
+                                        help='Dialogs in training/validation datasets rate. Default is %(default)s')
+    training_conversations.set_defaults(func=handle_training_conversations)
+
+    export_conversations = subparsers.add_parser('export-dialogs',
+                                                   help='Export conversations for given date or interval',
+                                                   description='Export conversations for given date or interval')
+    export_conversations.add_argument('-b',
+                                      '--begin',
+                                      type=str,
+                                      default=None,
+                                      help='Begin or exact date of export interval in YYYY-MM-DD format. Default is %(default)s')
+    export_conversations.add_argument('-e',
+                                      '--end',
+                                      type=str,
+                                      default=None,
+                                      help='End date of export interval in YYYY-MM-DD format Default is %(default)s')
+    export_conversations.add_argument('-t',
+                                      '--target',
+                                      type=str,
+                                      default='~/router_bot_export',
+                                      help='Target dir for export. Default is %(default)s')
+    export_conversations.set_defaults(func=handle_export_conversations)
+
+    bot_scores = subparsers.add_parser('bot-scores',
+                                       help='Export dayly and total bot scores',
+                                       description='Export dayly and total bot scores')
+
+    bot_scores.add_argument('-b',
+                            '--begin',
+                            type=str,
+                            default=None,
+                            help='Begin or exact date of report interval in YYYY-MM-DD format. Default is %(default)s')
+    bot_scores.add_argument('-e',
+                            '--end',
+                            type=str,
+                            default=None,
+                            help='End date of report interval in YYYY-MM-DD format Default is %(default)s')
+    bot_scores.add_argument('-t',
+                            '--target',
+                            type=str,
+                            default='~/router_bot_export',
+                            help='Target dir for export. Default is %(default)s')
+    bot_scores.set_defaults(func=handle_bot_scores)
 
     return parser
 
