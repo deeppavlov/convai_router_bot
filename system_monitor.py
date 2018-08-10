@@ -193,6 +193,26 @@ def handle_bot_scores(args):
     print(f'Bot scores for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
 
 
+def handle_export_parlai(args):
+    save_dir = Path(args.target).expanduser().resolve()
+    save_dir = save_dir.joinpath('export_parlai')
+
+    if not save_dir.is_dir():
+        save_dir.mkdir(parents=True)
+
+    begin_name_part = '' if args.begin is None else f'_{args.begin}'
+    end_name_part = '' if args.end is None else f'_{args.end}'
+    save_path = save_dir.joinpath(f'export_parlai{begin_name_part}{end_name_part}.txt')
+
+    convs = util.export_parlai_conversations(args.begin, args.end)
+    write_content = '\n'.join(list(convs.values()))
+
+    with open(save_path, 'w') as f_txt:
+        f_txt.write(write_content)
+
+    print(f'ParlAI formatted conversations for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
+
+
 def setup_argparser():
     parser = argparse.ArgumentParser(description='ConvAI system management tool')
     parser.add_argument('--mongo-uri',
@@ -397,6 +417,26 @@ def setup_argparser():
                             default='~/router_bot_export',
                             help='Target dir for export. Default is %(default)s')
     bot_scores.set_defaults(func=handle_bot_scores)
+
+    export_parlai = subparsers.add_parser('export-parlai',
+                                          help='Export conversations for given date or interval in ParlAI format',
+                                          description='Export conversations for given date or interval in ParlAI format')
+    export_parlai.add_argument('-b',
+                               '--begin',
+                               type=str,
+                               default=None,
+                               help='Begin or exact date of export interval in YYYY-MM-DD format. Default is %(default)s')
+    export_parlai.add_argument('-e',
+                               '--end',
+                               type=str,
+                               default=None,
+                               help='End date of export interval in YYYY-MM-DD format Default is %(default)s')
+    export_parlai.add_argument('-t',
+                               '--target',
+                               type=str,
+                               default='~/router_bot_export',
+                               help='Target dir for export. Default is %(default)s')
+    export_parlai.set_defaults(func=handle_export_parlai)
 
     return parser
 

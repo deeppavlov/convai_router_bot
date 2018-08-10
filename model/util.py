@@ -320,3 +320,53 @@ def export_bot_scores(date_begin=None, date_end=None):
     # return {'scores': bot_scores, 'convs': convs}
 
     return bot_scores
+
+
+def export_parlai_conversations(date_begin=None, date_end=None):
+    # TODO: merge with export_bot_scores
+    parlai_convs = {}
+
+    if (date_begin is None) and (date_end is None):
+        date_begin = '1900-01-01'
+        date_end = '2500-12-31'
+    elif (date_begin is not None) and (date_end is None):
+        date_end = date_begin
+
+    datetime_begin = datetime.strptime(f'{date_begin}_00:00:00.000000', "%Y-%m-%d_%H:%M:%S.%f")
+    datetime_end = datetime.strptime(f'{date_end}_23:59:59.999999', "%Y-%m-%d_%H:%M:%S.%f")
+    args = {'start_time__gte': datetime_begin, 'start_time__lte': datetime_end}
+
+    convs = Conversation.objects(**args)
+
+    def process_conversation(conversation: Conversation):
+        id = conversation.conversation_id
+        messages = list(conversation.messages)
+        msgs_processed = None
+
+        if len(messages) >= 2:
+            msgs = []
+            msgs.append(messages[0].text)
+
+            for index, message in enumerate(messages[1:]):
+                if message.sender == messages[index].sender:
+                    msgs[-1] = f'{msgs[-1]} {message.text}'
+                else:
+                    msgs.append(message.text)
+
+            msgs_odd = msgs[::2]
+            msgs_even = msgs[1::2]
+            msgs_grouped = list(zip(msgs_odd, msgs_even))
+
+            if msgs_grouped:
+                msgs_processed = [f'text:{dialog[0]}\tlabels:{dialog[1]}' for dialog in msgs_grouped]
+                msgs_processed = '\n'.join(msgs_processed)
+                msgs_processed = f'{msgs_processed}\tepisode_done:True'
+
+        return id, msgs_processed
+
+    for conv in convs:
+        conv_id, conv_processed = process_conversation(conv)
+        if conv_processed:
+            parlai_convs[conv_id] = conv_processed
+
+    return parlai_convs
