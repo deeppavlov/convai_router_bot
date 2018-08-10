@@ -202,10 +202,12 @@ def handle_export_parlai(args):
 
     begin_name_part = '' if args.begin is None else f'_{args.begin}'
     end_name_part = '' if args.end is None else f'_{args.end}'
-    save_path = save_dir.joinpath(f'export_parlai{begin_name_part}{end_name_part}.txt')
 
     convs = util.export_parlai_conversations(args.begin, args.end)
+    convs_num = len(convs)
     write_content = '\n'.join(list(convs.values()))
+
+    save_path = save_dir.joinpath(f'export_parlai{begin_name_part}{end_name_part}_{str(convs_num)}.txt')
 
     with open(save_path, 'w') as f_txt:
         f_txt.write(write_content)
