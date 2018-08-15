@@ -204,13 +204,18 @@ def handle_export_parlai(args):
     end_name_part = '' if args.end is None else f'_{args.end}'
 
     convs = util.export_parlai_conversations(args.begin, args.end)
+    convs_list = [conv for conv in convs.values()]
     convs_num = len(convs)
     write_content = '\n'.join(list(convs.values()))
 
-    save_path = save_dir.joinpath(f'export_parlai{begin_name_part}{end_name_part}_{str(convs_num)}.txt')
+    save_path_txt = save_dir.joinpath(f'export_parlai{begin_name_part}{end_name_part}_{str(convs_num)}.txt')
+    save_path_json = save_dir.joinpath(f'export_parlai{begin_name_part}{end_name_part}_{str(convs_num)}.json')
 
-    with open(save_path, 'w') as f_txt:
+    with open(save_path_txt, 'w') as f_txt:
         f_txt.write(write_content)
+
+    with open(save_path_json, 'w') as f_json:
+        json.dump(convs_list, f_json)
 
     print(f'ParlAI formatted conversations for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
 
