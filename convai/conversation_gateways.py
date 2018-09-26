@@ -356,13 +356,24 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                                'and retry bot setting'):
             return
 
-        set_bot_txt = 'Enter bot token:'
+        self._user_states[user] = self.UserState.WAITING_FOR_BOT_TOKEN
 
+        set_bot_txt = 'Enter bot token:'
         await messenger.send_message_to_user(user, set_bot_txt, False)
 
     async def on_message_received(self, sender: User, text: str, time: datetime, msg_id: str = None):
         self.log.info(f'message received')
         user = await self._update_user_record_in_db(sender)
+
+        if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
+            bot_token = text
+
+            self._user_states[user] = self.UserState.IDLE
+
+            messenger = self._messenger_for_user(user)
+            set_bot_txt = f'Bot with token {bot_token} was set for all further conversations with you'
+            await messenger.send_message_to_user(user, set_bot_txt, False)
+
         if not await self._validate_user_state(user, self.UserState.IN_DIALOG, 'Unexpected message. You are not in a '
                                                                                'dialog yet or the dialog has already '
                                                                                'been finished. Use /help command for '
