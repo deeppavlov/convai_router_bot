@@ -358,21 +358,39 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         self._user_states[user] = self.UserState.WAITING_FOR_BOT_TOKEN
 
-        set_bot_txt = 'Enter bot token:'
+        set_bot_txt = 'Enter bot token to set default bot or /unset command to unset default bot for your user ' \
+                      'in this channel:'
         await messenger.send_message_to_user(user, set_bot_txt, False)
 
     async def on_message_received(self, sender: User, text: str, time: datetime, msg_id: str = None):
         self.log.info(f'message received')
         user = await self._update_user_record_in_db(sender)
+        messenger = self._messenger_for_user(user)
 
         if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
-            bot_token = text
+            bot_token = text.strip()
 
-            self._user_states[user] = self.UserState.IDLE
+            if bot_token == '/unset':
+                user.update(assigned_test_bot=None)
+                set_bot_txt = 'Default bot for your user in this channel was unset'
+            else:
+                #bots = await run_sync_in_executor(Bot.objects, banned=False, token=bot_token)
+                #bots_count = await run_sync_in_executor(bots.count)
+                #if bots_count == 0:
+                #    set_bot_txt = f'No bot found with token: {bot_token}'
+                #else:
+                #    bot = await run_sync_in_executor(lambda: bots[0])
+                bot = Bot.objects.with_id(bot_token)
 
-            messenger = self._messenger_for_user(user)
-            set_bot_txt = f'Bot with token {bot_token} was set for all further conversations with you'
+                if bot:
+                    user.update(assigned_test_bot=bot)
+                    set_bot_txt = f'Bot with token {bot_token} was set as default for your user in this channel'
+                else:
+                    set_bot_txt = f'No bot found with token: {bot_token}'
+
             await messenger.send_message_to_user(user, set_bot_txt, False)
+            self._user_states[user] = self.UserState.IDLE
+            return
 
         if not await self._validate_user_state(user, self.UserState.IN_DIALOG, 'Unexpected message. You are not in a '
                                                                                'dialog yet or the dialog has already '
