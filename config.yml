@@ -18,6 +18,7 @@ dialog:
   evaluation_score_to: 5
   n_bad_messages_in_a_row_threshold: 10
   guess_profile_sentence_by_sentence: false
+  allow_set_bot: false
 
 logging:
   root_path: ~/log/convai-router

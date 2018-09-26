@@ -248,13 +248,14 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     _user_states: DefaultDict[User, UserState]
     guess_profile_sentence_by_sentence: bool
 
-    def __init__(self, guess_profile_sentence_by_sentence: bool):
+    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
         self._user_states = defaultdict(lambda: self.UserState.IDLE)
 
         self.guess_profile_sentence_by_sentence = guess_profile_sentence_by_sentence
+        self.allow_set_bot = allow_set_bot
 
     def add_messengers(self, *messengers: AbstractMessenger):
         self._messengers.update({m.platform: m for m in messengers if isinstance(m, AbstractMessenger)})
@@ -356,10 +357,13 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                                'and retry bot setting'):
             return
 
-        self._user_states[user] = self.UserState.WAITING_FOR_BOT_TOKEN
+        if self.allow_set_bot:
+            self._user_states[user] = self.UserState.WAITING_FOR_BOT_TOKEN
+            set_bot_txt = 'Enter bot token to set default bot or /unset command to unset default bot for your user ' \
+                          'in this channel:'
+        else:
+            set_bot_txt = 'Bot setting is not allowed'
 
-        set_bot_txt = 'Enter bot token to set default bot or /unset command to unset default bot for your user ' \
-                      'in this channel:'
         await messenger.send_message_to_user(user, set_bot_txt, False)
 
     async def on_message_received(self, sender: User, text: str, time: datetime, msg_id: str = None):
@@ -374,12 +378,6 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                 user.update(assigned_test_bot=None)
                 set_bot_txt = 'Default bot for your user in this channel was unset'
             else:
-                #bots = await run_sync_in_executor(Bot.objects, banned=False, token=bot_token)
-                #bots_count = await run_sync_in_executor(bots.count)
-                #if bots_count == 0:
-                #    set_bot_txt = f'No bot found with token: {bot_token}'
-                #else:
-                #    bot = await run_sync_in_executor(lambda: bots[0])
                 bot = Bot.objects.with_id(bot_token)
 
                 if bot:
