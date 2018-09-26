@@ -213,7 +213,7 @@ class TelegramMessenger(AbstractMessenger):
                             '/end': partial(self.gateway.on_end_dialog, internal_user),
                             '/start': partial(self.gateway.on_get_started, internal_user),
                             '/complain': partial(self.gateway.on_complain, internal_user),
-                            '/setbot': self.gateway.on_set_bot}
+                            '/setbot': partial(self.gateway.on_set_bot, internal_user)}
 
         valid_commands = [c for c in commands if c in command_handlers]
 
