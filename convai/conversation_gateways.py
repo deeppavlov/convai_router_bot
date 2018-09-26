@@ -241,6 +241,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         IN_DIALOG = enum.auto()
         EVALUATING = enum.auto()
         WAITING_FOR_PARTNER_EVALUATION = enum.auto()
+        WAITING_FOR_BOT_TOKEN = enum.auto()
 
     _messengers: Dict[str, AbstractMessenger]
     _conversations: Dict[User, ConversationRecord]
@@ -343,6 +344,21 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         await messenger.send_message_to_user(user,
                                              info_txt if result else fail_msg,
                                              False)
+
+    async def on_set_bot(self, user: User):
+        self.log.info(f'user requested for setting bot for conversation')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+
+        if not await self._validate_user_state(user,
+                                               self.UserState.IDLE,
+                                               'You are in a dialog. Bot setting is not available. Please finish it '
+                                               'and retry bot setting'):
+            return
+
+        set_bot_txt = 'Enter bot token:'
+
+        await messenger.send_message_to_user(user, set_bot_txt, False)
 
     async def on_message_received(self, sender: User, text: str, time: datetime, msg_id: str = None):
         self.log.info(f'message received')

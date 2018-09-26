@@ -56,6 +56,10 @@ class AbstractHumansGateway(ABC):
     async def on_end_dialog(self, initiator: User):
         pass
 
+    @abstractmethod
+    async def on_set_bot(self, user: User):
+        pass
+
 
 class AbstractMessenger(ABC):
     gateway: AbstractHumansGateway
@@ -449,7 +453,8 @@ class FacebookMessenger(AbstractMessenger):
                 '/begin': self.gateway.on_begin,
                 '/end': self.gateway.on_end_dialog,
                 '/start': self.gateway.on_get_started,
-                '/complain': self.gateway.on_complain}
+                '/complain': self.gateway.on_complain,
+                '/setbot': self.gateway.on_set_bot}
 
     async def _on_chat_msg(self, sender: User, text: str, date: datetime, msg_id: str):
         self.log.info(f'chat message received')
