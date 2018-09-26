@@ -212,7 +212,8 @@ class TelegramMessenger(AbstractMessenger):
                             '/begin': partial(self.gateway.on_begin, internal_user),
                             '/end': partial(self.gateway.on_end_dialog, internal_user),
                             '/start': partial(self.gateway.on_get_started, internal_user),
-                            '/complain': partial(self.gateway.on_complain, internal_user)}
+                            '/complain': partial(self.gateway.on_complain, internal_user),
+                            '/setbot': self.gateway.on_set_bot}
 
         valid_commands = [c for c in commands if c in command_handlers]
 
@@ -453,8 +454,7 @@ class FacebookMessenger(AbstractMessenger):
                 '/begin': self.gateway.on_begin,
                 '/end': self.gateway.on_end_dialog,
                 '/start': self.gateway.on_get_started,
-                '/complain': self.gateway.on_complain,
-                '/setbot': self.gateway.on_set_bot}
+                '/complain': self.gateway.on_complain}
 
     async def _on_chat_msg(self, sender: User, text: str, date: datetime, msg_id: str):
         self.log.info(f'chat message received')
