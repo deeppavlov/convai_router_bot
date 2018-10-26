@@ -56,6 +56,10 @@ class AbstractHumansGateway(ABC):
     async def on_end_dialog(self, initiator: User):
         pass
 
+    @abstractmethod
+    async def on_set_bot(self, user: User):
+        pass
+
 
 class AbstractMessenger(ABC):
     gateway: AbstractHumansGateway
@@ -208,7 +212,8 @@ class TelegramMessenger(AbstractMessenger):
                             '/begin': partial(self.gateway.on_begin, internal_user),
                             '/end': partial(self.gateway.on_end_dialog, internal_user),
                             '/start': partial(self.gateway.on_get_started, internal_user),
-                            '/complain': partial(self.gateway.on_complain, internal_user)}
+                            '/complain': partial(self.gateway.on_complain, internal_user),
+                            '/setbot': partial(self.gateway.on_set_bot, internal_user)}
 
         valid_commands = [c for c in commands if c in command_handlers]
 
