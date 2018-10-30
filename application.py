@@ -84,7 +84,8 @@ async def init():
     mongoengine.connect(host=config['mongo_uri'])
 
     humans_gateway = HumansGateway(config['dialog']['guess_profile_sentence_by_sentence'],
-                                   config['dialog']['allow_set_bot'])
+                                   config['dialog']['allow_set_bot'],
+                                   config['evaluation_options'])
     bots_gateway = BotsGateway(config['dialog']['n_bad_messages_in_a_row_threshold'])
 
     init_tasks = []
@@ -107,7 +108,8 @@ async def init():
                                    bots_gateway,
                                    humans_gateway,
                                    config['dialog']['evaluation_score_from'],
-                                   config['dialog']['evaluation_score_to'])
+                                   config['dialog']['evaluation_score_to'],
+                                   config['evaluation_options'])
 
     humans_gateway.dialog_handler = dialog_manager
     bots_gateway.dialog_handler = dialog_manager

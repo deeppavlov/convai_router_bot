@@ -43,7 +43,8 @@ class DialogManager(AbstractDialogHandler):
 
     def __init__(self, max_time_in_lobby: Number, human_bot_ratio: float, inactivity_timeout: Number,
                  length_threshold: int, bots_gateway: BotsGateway, humans_gateway: HumansGateway,
-                 dialog_eval_min: int, dialog_eval_max: int, scheduler: BaseScheduler = None):
+                 dialog_eval_min: int, dialog_eval_max: int, evaluation_options: dict,
+                 scheduler: BaseScheduler = None):
         """
         Dialog manager is responsible for handling conversations. Including matching with human and bot peers, dialog 
         setup, dialog evaluation, etc.
@@ -61,6 +62,7 @@ class DialogManager(AbstractDialogHandler):
         :param humans_gateway: An object capable of handling system-to-human communication
         :param dialog_eval_min: min score for dialog evaluation
         :param dialog_eval_max: max score for dialog evaluation
+        :param evaluation_options: dialog evaluation options
         :param scheduler: custom non-blocking scheduler object which conforms to the interface of
             apscheduler.schedulers.base.BaseScheduler. Default value is BackgroundScheduler().
         """
@@ -73,6 +75,7 @@ class DialogManager(AbstractDialogHandler):
         self.inactivity_timeout = inactivity_timeout
         self.human_bot_ratio = human_bot_ratio
         self.max_time_in_lobby = max_time_in_lobby
+        self.evaluation_options = evaluation_options
 
         self._lobby = {}
         self._active_dialogs = {}
@@ -179,6 +182,8 @@ class DialogManager(AbstractDialogHandler):
             conversation_peer.dialog_evaluation_score = score
 
         self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.SCORE_GIVEN
+        if not self.evaluation_options['guess_profile']:
+            self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.PROFILE_SELECTED
         await self._handle_evaluation_state(conversation_id)
 
     async def select_other_peer_profile(self, conversation_id: int, evaluator: Union[User, Bot],

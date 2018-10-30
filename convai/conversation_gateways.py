@@ -248,7 +248,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     _user_states: DefaultDict[User, UserState]
     guess_profile_sentence_by_sentence: bool
 
-    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool):
+    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool, evaluation_options: dict):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
@@ -256,6 +256,8 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         self.guess_profile_sentence_by_sentence = guess_profile_sentence_by_sentence
         self.allow_set_bot = allow_set_bot
+        self.evaluation_options = evaluation_options
+
 
     def add_messengers(self, *messengers: AbstractMessenger):
         self._messengers.update({m.platform: m for m in messengers if isinstance(m, AbstractMessenger)})
@@ -438,13 +440,15 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv = self._conversations[user]
         await self.dialog_handler.evaluate_dialog(conv.conv_id, user, score)
 
-        if self.guess_profile_sentence_by_sentence:
-            if not conv.shuffled_sentences:
-                await self._prepare_profile_sentences(user)
-                await self._request_next_profile_sentence_guess(user)
-        else:
-            msg = 'Select a profile which, in your opinion, belongs to your partner: '
-            await messenger.request_profile_selection(user, msg, [x.description for x in conv.opponent_profile_options])
+        if self.evaluation_options['guess_profile']:
+            if self.guess_profile_sentence_by_sentence:
+                if not conv.shuffled_sentences:
+                    await self._prepare_profile_sentences(user)
+                    await self._request_next_profile_sentence_guess(user)
+            else:
+                msg = 'Select a profile which, in your opinion, belongs to your partner: '
+                await messenger.request_profile_selection(user, msg, [x.description for x in conv.opponent_profile_options])
+
         return True
 
     async def on_other_peer_profile_selected(self, evaluator: User, profile_idx: int,
@@ -483,10 +487,16 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self._conversations[user] = self.ConversationRecord(conversation_id)
         self._user_states[user] = self.UserState.IN_DIALOG
 
-        await messenger.send_message_to_user(user, "Partner found!", False)
-        await messenger.send_message_to_user(user, "This is your profile. During the dialog pretend to be this person",
-                                             False)
-        await messenger.send_message_to_user(user, profile.description, False, keyboard_buttons=['/end', '/complain'])
+        if self.evaluation_options['guess_profile']:
+            await messenger.send_message_to_user(user, "Partner found!", False)
+            await messenger.send_message_to_user(user,
+                                                 "This is your profile. During the dialog pretend to be this person",
+                                                 False)
+            await messenger.send_message_to_user(user, profile.description, False,
+                                                 keyboard_buttons=['/end', '/complain'])
+        else:
+            await messenger.send_message_to_user(user, "Partner found!", False,
+                                                 keyboard_buttons=['/end', '/complain'])
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
