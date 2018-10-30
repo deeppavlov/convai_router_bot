@@ -20,7 +20,7 @@ dialog:
   guess_profile_sentence_by_sentence: false
   allow_set_bot: false
 evaluation_options:
-  guess_profile: false
+  guess_profile: true
 
 logging:
   root_path: ~/log/convai-router
