@@ -757,7 +757,8 @@ class BotsGateway(AbstractGateway):
             await self.dialog_handler.evaluate_dialog(chat_id, bot, score)
             await self.dialog_handler.select_other_peer_profile(chat_id, bot, profile_idx)
         else:
-            await self._validate_trigrams(text, chat_id, bot)
+            if self._n_bad_messages_threshold > 0:
+                await self._validate_trigrams(text, chat_id, bot)
             msg_id = await self.dialog_handler.on_message_received(chat_id, bot, text, date)
 
             if 'msg_evaluation' in msg_data:
