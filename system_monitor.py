@@ -99,7 +99,7 @@ def handle_training_conversations(args):
     save_path_train = save_dir.joinpath(f'export{begin_name_part}{end_name_part}_train.json')
     save_path_valid = save_dir.joinpath(f'export{begin_name_part}{end_name_part}_valid.json')
 
-    convs = util.export_training_conversations(args.begin, args.end)
+    convs = util.export_training_conversations(args.begin, args.end, args.reveal_sides)
     convs_num_train = round(len(convs) * args.rate)
     convs_train = convs[:convs_num_train]
     convs_valid = convs[convs_num_train:]
@@ -382,6 +382,10 @@ def setup_argparser():
                                         type=float,
                                         default=0.8,
                                         help='Dialogs in training/validation datasets rate. Default is %(default)s')
+    training_conversations.add_argument('-s',
+                                        '--reveal-sides',
+                                        action='store_true',
+                                        help='Reveal bot/human identity of dialog participants. Default is %(default)s')
     training_conversations.set_defaults(func=handle_training_conversations)
 
     export_conversations = subparsers.add_parser('export-dialogs',
