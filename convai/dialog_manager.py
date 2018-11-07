@@ -115,6 +115,9 @@ class DialogManager(AbstractDialogHandler):
         if conversation_id in self._evaluations:
             raise ValueError('Conversation is finished. Only evaluation is allowed')
 
+        if text == 'ziga':
+            await self.trigger_dialog_end(conversation_id, sender)
+
         msg = Message(msg_id=len(conversation.messages),
                       text=text,
                       sender=sender,
@@ -155,6 +158,20 @@ class DialogManager(AbstractDialogHandler):
             raise ValueError('Could not find evaluate own messages')
 
         msg.evaluation_score = score
+
+        if self.evaluation_options['message_evaluation_mode']:
+            msg = Message(msg_id=len(conversation.messages),
+                          text='/next',
+                          sender=evaluator,
+                          time=datetime.now())
+
+            conversation.messages.append(msg)
+
+            receiver = next((p.peer for p in conversation.participants if p.peer != evaluator), None)
+            if receiver is None:
+                raise RuntimeError('Could not find a receiver for the message')
+
+            await self._gateway_for_peer(receiver).send_message(conversation_id, msg.msg_id, msg.text, receiver)
 
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         log.info(f'end of conversation {conversation_id} triggered')

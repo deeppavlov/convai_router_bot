@@ -398,6 +398,12 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                                                                'usage instructions'):
             return
 
+        if self.evaluation_options['message_evaluation_mode']:
+            info_message = 'You are interacting bot in message evaluation mode. No plain text input available. ' \
+                           'Evaluate bot output with message evaluation buttons to get new one.'
+            await messenger.send_message_to_user(user, info_message, False)
+            return
+
         conv = self._conversations[user]
 
         internal_id = await self._dialog_handler.on_message_received(conv.conv_id, user, text, time)
