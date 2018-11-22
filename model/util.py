@@ -165,6 +165,8 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
     convs = Conversation.objects(**args)
 
     for conv in convs:
+        conv: Conversation = conv
+
         training_conv = {
             'dialog_id': str(hex(conv.conversation_id)),
             'dialog': []
@@ -208,11 +210,18 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             User: 'Human'
         }
 
+        if conv.participant1.peer.__class__ == Bot:
+            training_conv['bot_id'] = conv.participant1.peer.id
+        elif conv.participant2.peer.__class__ == Bot:
+            training_conv['bot_id'] = conv.participant2.peer.id
+
         for msg in conv.messages:
+            msg: Message = msg
             training_message = {
                 'id': msg.msg_id,
                 'sender': participants[msg.sender],
-                'text': msg.text
+                'text': msg.text,
+                'evaluation_score': msg.evaluation_score
             }
 
             if reveal_sender:
