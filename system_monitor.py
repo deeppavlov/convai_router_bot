@@ -159,7 +159,6 @@ def handle_export_conversations(args):
 
 
 def handle_bot_scores(args):
-    # TODO: Refactor hardcode botname dict
     save_dir = Path(args.target).expanduser().resolve()
     save_dir = save_dir.joinpath('bot_scores')
 
@@ -170,25 +169,10 @@ def handle_bot_scores(args):
     end_name_part = '' if args.end is None else f'_{args.end}'
     save_path = save_dir.joinpath(f'bot_scores{begin_name_part}{end_name_part}.json')
 
-    scores_raw = util.export_bot_scores(args.begin, args.end)
-
-    bot_names = {
-        "28f4ed5c-405b-4b46-96e7-b77de7782b75": 'baseline',
-        "24480ac9-3c3d-471a-8e24-6215f9ee6dae": 'tensorborne',
-        "53f1d818-b564-486e-ae80-bea8d91465b1": 'NEUROBOTICS',
-        "105561dd-4850-45b4-94be-e767ad48c97a": 'Lost in conversetion',
-        "ad558a10-8a7e-48ac-95a2-3cc9aa318dbd": 'infinity',
-        "00a7a39a-466e-4262-b4d1-ea92f98574d6": 'loopAI',
-        "31f1fbba-624e-4d57-ad5e-f667053b95f1": 'Sonic'
-    }
-
-    scores = {}
-    for bot_id in scores_raw.keys():
-        scores_raw[bot_id]['bot_id'] = bot_id
-        scores[bot_names[bot_id]] = scores_raw[bot_id]
+    scores_raw = util.export_bot_scores(args.begin, args.end, args.daily_stats)
 
     with open(save_path, 'w') as f_scores:
-        json.dump(scores, f_scores)
+        json.dump(scores_raw, f_scores, indent=2)
 
     print(f'Bot scores for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
 
@@ -427,6 +411,10 @@ def setup_argparser():
                             type=str,
                             default='~/router_bot_export',
                             help='Target dir for export. Default is %(default)s')
+    bot_scores.add_argument('-d',
+                            '--daily-stats',
+                            action='store_true',
+                            help='Show daily statistics in report. Default is %(default)s')
     bot_scores.set_defaults(func=handle_bot_scores)
 
     export_parlai = subparsers.add_parser('export-parlai',

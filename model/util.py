@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from io import StringIO
 from typing import TextIO, Union
 from uuid import uuid4
+from collections import defaultdict
 
 from mongoengine import errors
 from mongoengine.queryset.visitor import Q
@@ -234,8 +235,8 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
     return training_convs
 
 
-def export_bot_scores(date_begin=None, date_end=None):
-    # TODO: refactor with pipeline
+def export_bot_scores(date_begin=None, date_end=None, daily_stats=False):
+    # TODO: refactor this shit with pipeline
     bot_scores = {}
 
     # ===== maint =====
@@ -244,7 +245,13 @@ def export_bot_scores(date_begin=None, date_end=None):
     profiles_obj = PersonProfile.objects
     profiles = {str(profile.pk): list(profile.sentences) for profile in profiles_obj}
 
+    bot_daily_stats = {}
+
     for bot in Bot.objects:
+
+        if bot.banned:
+            continue
+
         bot_id = str(bot.id)
         bot_scores[bot_id] = {}
 
@@ -269,55 +276,85 @@ def export_bot_scores(date_begin=None, date_end=None):
         user_eval_scores = []
         profile_selected_scores = []
         scored_dialogs = 0
+        convs_long_short = defaultdict(list)
 
         for bot_conv in bot_convs:
+            bot_conv: Conversation = bot_conv
+
             bot_conv_id = str(bot_conv.id)
             num_messages = len(bot_conv.messages)
             count_as_scored = False
 
-            if num_messages >= 3:
-                if isinstance(bot_conv.participant1.peer, Bot):
-                    peer_bot = bot_conv.participant1
-                    peer_user = bot_conv.participant2
-                else:
-                    peer_bot = bot_conv.participant2
-                    peer_user = bot_conv.participant1
+            conv_date = str(datetime.date(bot_conv.start_time))
+            num_user_messages = 0
+            num_bot_messages = 0
 
-                user_eval_score = peer_user.dialog_evaluation_score
-                bot_profile = peer_bot.assigned_profile
-                user_selected_profile = peer_user.other_peer_profile_selected
-                user_selected_profile_parts = peer_user.other_peer_profile_selected_parts
+            if isinstance(bot_conv.participant1.peer, Bot):
+                peer_bot = bot_conv.participant1
+                peer_user = bot_conv.participant2
+            else:
+                peer_bot = bot_conv.participant2
+                peer_user = bot_conv.participant1
 
-                if user_eval_score is not None:
-                    eval_score_norm = (int(user_eval_score) - 1) / 4
-                    user_eval_scores.append(eval_score_norm)
-                    count_as_scored = count_as_scored | True
+            for message in bot_conv.messages:
+                message: Message = message
+                if message.sender == peer_user.peer:
+                    num_user_messages += 1
+                elif message.sender == peer_bot.peer:
+                    num_bot_messages += 1
 
-                if user_selected_profile is not None:
-                    profile_selected_score = int(user_selected_profile == bot_profile)
-                    profile_selected_scores.append(profile_selected_score)
-                    count_as_scored = count_as_scored | True
-                elif len(user_selected_profile_parts) > 0:
-                    profile_set = set(list(bot_profile.sentences))
-                    selected_set = set(list(user_selected_profile_parts))
-                    matched_set = profile_set.intersection(selected_set)
+            long_conv = True if (num_user_messages > 3 and num_bot_messages > 3) else False
 
-                    profile_selected_score = len(matched_set) / len(profile_set)
-                    profile_selected_scores.append(profile_selected_score)
-                    count_as_scored = count_as_scored | True
-                else:
-                    profile_selected_score = None
+            convs_long_short[conv_date].append(long_conv)
 
-                scored_dialogs = scored_dialogs + (int(count_as_scored))
+            user_eval_score = peer_user.dialog_evaluation_score
+            bot_profile = peer_bot.assigned_profile
+            user_selected_profile = peer_user.other_peer_profile_selected
+            user_selected_profile_parts = peer_user.other_peer_profile_selected_parts
 
-                # ===== maint =====
-                convs[bot_id][bot_conv_id] = {
-                    'user_eval_score': user_eval_score,
-                    'profile_selected_score': profile_selected_score,
-                    'profile_set': list(bot_profile.sentences),
-                    'selected_set': list(user_selected_profile_parts),
-                    'num_messages': num_messages
+            if user_eval_score is not None:
+                eval_score_norm = (int(user_eval_score) - 1) / 4
+                user_eval_scores.append(eval_score_norm)
+                count_as_scored = count_as_scored | True
+
+            if user_selected_profile is not None:
+                profile_selected_score = int(user_selected_profile == bot_profile)
+                profile_selected_scores.append(profile_selected_score)
+                count_as_scored = count_as_scored | True
+            elif len(user_selected_profile_parts) > 0:
+                profile_set = set(list(bot_profile.sentences))
+                selected_set = set(list(user_selected_profile_parts))
+                matched_set = profile_set.intersection(selected_set)
+
+                profile_selected_score = len(matched_set) / len(profile_set)
+                profile_selected_scores.append(profile_selected_score)
+                count_as_scored = count_as_scored | True
+            else:
+                profile_selected_score = None
+
+            scored_dialogs = scored_dialogs + (int(count_as_scored))
+
+            # ===== maint =====
+            convs[bot_id][bot_conv_id] = {
+                'user_eval_score': user_eval_score,
+                'profile_selected_score': profile_selected_score,
+                'profile_set': list(bot_profile.sentences),
+                'selected_set': list(user_selected_profile_parts),
+                'num_messages': num_messages
                 }
+
+        daily_statistics = {}
+
+        for date, daily_convs_log_short in convs_long_short.items():
+            daily_statistics[date] = {}
+            daily_statistics[date]['dialogs_total'] = len(daily_convs_log_short)
+            daily_statistics[date]['dialogs_long'] = len([conv for conv in daily_convs_log_short if conv])
+            daily_statistics[date]['dialogs_short'] = len([conv for conv in daily_convs_log_short if not conv])
+
+        bot_daily_stats[bot_id] = daily_statistics
+
+        if daily_stats:
+            bot_scores[bot_id]['daily_statistics'] = bot_daily_stats[bot_id]
 
         bot_scores[bot_id]['user_eval_score'] = 0 if len(user_eval_scores) == 0 else \
             sum(user_eval_scores) / len(user_eval_scores)
@@ -325,8 +362,35 @@ def export_bot_scores(date_begin=None, date_end=None):
             sum(profile_selected_scores) / len(profile_selected_scores)
         bot_scores[bot_id]['scored_dialogs'] = scored_dialogs
 
+        bot_scores[bot_id]['dialogs_total'] = sum([daily_statistics[date]['dialogs_total']
+                                                   for date in daily_statistics.keys()])
+        bot_scores[bot_id]['dialogs_long'] = sum([daily_statistics[date]['dialogs_long']
+                                                  for date in daily_statistics.keys()])
+        bot_scores[bot_id]['dialogs_short'] = sum([daily_statistics[date]['dialogs_short']
+                                                   for date in daily_statistics.keys()])
+
     # ===== maint =====
     # return {'scores': bot_scores, 'convs': convs}
+
+    def get_default_dict():
+        return defaultdict(int)
+
+    total_daily_statistics = defaultdict(get_default_dict)
+
+    for bot in bot_daily_stats.values():
+        for date, stats in bot.items():
+            total_daily_statistics[date]['dialogs_total'] += stats['dialogs_total']
+            total_daily_statistics[date]['dialogs_long'] += stats['dialogs_long']
+            total_daily_statistics[date]['dialogs_short'] += stats['dialogs_short']
+
+    bot_scores['total'] = {}
+
+    if daily_stats:
+        bot_scores['total']['daily_statistics'] = total_daily_statistics
+
+    bot_scores['total']['dialogs_total'] = sum([day['dialogs_total'] for day in total_daily_statistics.values()])
+    bot_scores['total']['dialogs_long'] = sum([day['dialogs_long'] for day in total_daily_statistics.values()])
+    bot_scores['total']['dialogs_short'] = sum([day['dialogs_short'] for day in total_daily_statistics.values()])
 
     return bot_scores
 
