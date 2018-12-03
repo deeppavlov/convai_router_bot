@@ -170,7 +170,9 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
 
         training_conv = {
             'dialog_id': str(hex(conv.conversation_id)),
-            'dialog': []
+            'dialog': [],
+            'start_time': str(conv.start_time),
+            'end_time': str(conv.end_time)
         }
 
         if isinstance(conv.participant1.peer, Bot):
