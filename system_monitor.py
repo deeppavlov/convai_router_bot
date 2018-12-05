@@ -99,16 +99,16 @@ def handle_training_conversations(args):
     save_path_train = save_dir.joinpath(f'export{begin_name_part}{end_name_part}_train.json')
     save_path_valid = save_dir.joinpath(f'export{begin_name_part}{end_name_part}_valid.json')
 
-    convs = util.export_training_conversations(args.begin, args.end, args.reveal_sides)
+    convs = util.export_training_conversations(args.begin, args.end, args.reveal_sides, args.reveal_ids)
     convs_num_train = round(len(convs) * args.rate)
     convs_train = convs[:convs_num_train]
     convs_valid = convs[convs_num_train:]
 
     with open(save_path_train, 'w') as f_train:
-        json.dump(convs_train, f_train)
+        json.dump(convs_train, f_train, indent=2)
 
     with open(save_path_valid, 'w') as f_valid:
-        json.dump(convs_valid, f_valid)
+        json.dump(convs_valid, f_valid, indent=2)
 
     print(f'Training and validation datasets for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
 
@@ -370,6 +370,10 @@ def setup_argparser():
                                         '--reveal-sides',
                                         action='store_true',
                                         help='Reveal bot/human identity of dialog participants. Default is %(default)s')
+    training_conversations.add_argument('-i',
+                                        '--reveal-ids',
+                                        action='store_true',
+                                        help='Reveal identity of dialog participants. Default is %(default)s')
     training_conversations.set_defaults(func=handle_training_conversations)
 
     export_conversations = subparsers.add_parser('export-dialogs',
