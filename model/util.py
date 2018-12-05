@@ -149,7 +149,8 @@ def import_profiles(stream: Union[TextIO, StringIO]):
     return PersonProfile.objects.insert(list(profiles))
 
 
-def export_training_conversations(date_begin=None, date_end=None, reveal_sender=False):
+def export_training_conversations(date_begin=None, date_end=None, reveal_sender=False, reveal_ids=False):
+    # TODO: need to process to human conversation scenario
     # TODO: merge with export_bot_scores
     training_convs = []
 
@@ -217,6 +218,35 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             training_conv['bot_id'] = conv.participant1.peer.id
         elif conv.participant2.peer.__class__ == Bot:
             training_conv['bot_id'] = conv.participant2.peer.id
+
+        if reveal_ids:
+            if conv.participant1.peer.__class__ == Bot:
+                peer: Bot = conv.participant1.peer
+                training_conv['participant1_id'] = {
+                    'class': 'Bot',
+                    'bot_token': peer.token
+                }
+            else:
+                peer: User = conv.participant1.peer
+                training_conv['participant1_id'] = {
+                    'class': 'User',
+                    'platform': peer.user_key.platform,
+                    'user_id': peer.user_key.user_id
+                }
+
+            if conv.participant2.peer.__class__ == Bot:
+                peer: Bot = conv.participant2.peer
+                training_conv['participant2_id'] = {
+                    'class': 'Bot',
+                    'bot_token': peer.token
+                }
+            else:
+                peer: User = conv.participant2.peer
+                training_conv['participant2_id'] = {
+                    'class': 'User',
+                    'platform': peer.user_key.platform,
+                    'user_id': peer.user_key.user_id
+                }
 
         for msg in conv.messages:
             msg: Message = msg
