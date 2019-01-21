@@ -248,7 +248,8 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     _user_states: DefaultDict[User, UserState]
     guess_profile_sentence_by_sentence: bool
 
-    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool):
+    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool, reveal_dialog_id: bool,
+                 messages: dict):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
@@ -256,6 +257,9 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         self.guess_profile_sentence_by_sentence = guess_profile_sentence_by_sentence
         self.allow_set_bot = allow_set_bot
+        self.reveal_dialog_id = reveal_dialog_id
+
+        self.messages = messages
 
     def add_messengers(self, *messengers: AbstractMessenger):
         self._messengers.update({m.platform: m for m in messengers if isinstance(m, AbstractMessenger)})
@@ -514,14 +518,14 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         # TODO: make sevret id printing switchable via config
         self.log.info(f'dialog {conversation_id} finished. Sending thank you message and cleaning up')
         users = [u for u, c in self._conversations.items() if c.conv_id == conversation_id]
-        # thanks_text = 'Dialog is finished. Thank you for participation! Save somewhere your secret conversation ID.'
         thanks_text = 'Dialog is finished. Thank you for participation!'
         messages_to_send = []
         for user in users:
             messenger = self._messenger_for_user(user)
-            # messages_to_send.append(messenger.send_message_to_user(user,
-            #                                                        f'Your secret id: {hex(conversation_id)}',
-            #                                                        False))
+            if self.reveal_dialog_id:
+                messages_to_send.append(messenger.send_message_to_user(user,
+                                                                       f'Your secret id: {hex(conversation_id)}',
+                                                                       False))
             messages_to_send.append(messenger.send_message_to_user(user,
                                                                    thanks_text,
                                                                    False,
