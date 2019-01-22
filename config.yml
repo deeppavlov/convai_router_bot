@@ -46,8 +46,8 @@ messages:
     4. After you were connected with your peer you will receive a starting message - a description of a person.\n
     5. During a dialogue you need to act as if you were this person
     (e.g.if your profile says "I study arts in a university", you can say that you are an arts student).\n
-    6. Please score every utterance of your peer with a ‘thumb UP’ button if you like it,
-    and ‘thumb DOWN’ button in the opposite case.\n
+    6. Please score every utterance of your peer with a thumb up button if you like it,
+    and thumb down button in the opposite case.\n
     7. To finish the conversation type or choose a command / end.\n
     8. If you were insulted type / complain or choose command / complain from menu.\n
     9. When the conversation is finished,
@@ -70,7 +70,7 @@ messages:
   finish_conversation_show_id: >-
     Conversation secret id: {}
   failed_conversation_no_peers: >-
-    No peers found 😔\nTry again later.
+    No peers found.\nTry again later.
   failed_conversation_banned: >-
     You are banned from using the system.
   error: >-
