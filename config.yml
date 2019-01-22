@@ -41,7 +41,7 @@ messages:
   start: >-
     1. To start a dialog type or choose  a "/begin" command.\n
     2. You will be connected to a peer or, if no peer is available at the moment,
-    you’ll receive the message "Please wait for you partner".\n
+    you will receive the message "Please wait for you partner".\n
     3. Peer might be a bot or another human evaluator.\n
     4. After you were connected with your peer you will receive a starting message - a description of a person.\n
     5. During a dialogue you need to act as if you were this person
