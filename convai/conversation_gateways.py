@@ -493,7 +493,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             messenger = self._messenger_for_user(user)
 
             if self.reveal_dialog_id:
-                msg = str(self.messages('finish_conversation_show_id')).format(hex(conversation_id))
+                msg = self.messages('finish_conversation_show_id', hex(conversation_id))
                 messages_to_send.append(messenger.send_message_to_user(user, msg, False))
 
             messages_to_send.append(messenger.send_message_to_user(user, thanks_text, False,
