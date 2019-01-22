@@ -8,6 +8,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Dict, Any, Optional, Callable
 from urllib.parse import urlparse
+from pathlib import Path
 
 import aiofiles
 import mongoengine
@@ -19,6 +20,7 @@ from convai.conversation_gateways import HumansGateway, BotsGateway
 from convai.dialog_manager import DialogManager
 from convai.exceptions import BotNotRegisteredError
 from convai.messenger_interfaces import FacebookMessenger, TelegramMessenger
+from convai.messages_wrapper import MessagesWrapper
 
 
 async def init():
@@ -83,10 +85,14 @@ async def init():
 
     mongoengine.connect(host=config['mongo_uri'])
 
+    messages_file = os.path.join(os.path.dirname(__file__), 'messages.tsv')
+    messages = MessagesWrapper(Path(messages_file).resolve())
+
     humans_gateway = HumansGateway(config['dialog']['guess_profile_sentence_by_sentence'],
                                    config['dialog']['allow_set_bot'],
                                    config['dialog']['reveal_dialog_id'],
-                                   config['messages'])
+                                   messages)
+
     bots_gateway = BotsGateway(config['dialog']['n_bad_messages_in_a_row_threshold'])
 
     init_tasks = []
