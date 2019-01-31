@@ -13,6 +13,7 @@ from typing import Union, List, Dict, DefaultDict, Optional, Set, Tuple
 from convai import run_sync_in_executor
 from convai.exceptions import BotNotRegisteredError, ProfileTrigramDetectedInMessageError
 from convai.messenger_interfaces import AbstractMessenger, AbstractHumansGateway
+from convai.messages_wrapper import MessagesWrapper
 from model import PersonProfile, Bot, User
 
 
@@ -248,7 +249,8 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     _user_states: DefaultDict[User, UserState]
     guess_profile_sentence_by_sentence: bool
 
-    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool):
+    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool, reveal_dialog_id: bool,
+                 messages: MessagesWrapper):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
@@ -256,6 +258,9 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         self.guess_profile_sentence_by_sentence = guess_profile_sentence_by_sentence
         self.allow_set_bot = allow_set_bot
+        self.reveal_dialog_id = reveal_dialog_id
+
+        self.messages = messages
 
     def add_messengers(self, *messengers: AbstractMessenger):
         self._messengers.update({m.platform: m for m in messengers if isinstance(m, AbstractMessenger)})
@@ -265,9 +270,9 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
 
-        if not await self._validate_user_state(user, self.UserState.IDLE, 'Cannot start a new conversation. Please '
-                                                                          'finish your current dialog first. Use '
-                                                                          '/help command for usage instructions'):
+        if not await self._validate_user_state(user,
+                                               self.UserState.IDLE,
+                                               self.messages('start_conversation_can_not')):
             return
 
         if user.banned:
@@ -276,24 +281,15 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         self._user_states[user] = self.UserState.IN_LOBBY
 
-        wait_txt = "Searching for peer. Please wait..."
+        wait_txt = self.messages('start_conversation_searching_for_peer')
         await asyncio.gather(messenger.send_message_to_user(user, wait_txt, False),
                              self.dialog_handler.on_human_initiated_dialog(user))
 
     async def on_help(self, user: User):
-        self.log.info(f'help requested')
+        self.log.info('help requested')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        help_txt = 'This is personalised chatbot - chatbot with a pre-defined personality. Please have a chat with it and evaluate its performance.\n' \
-                    'To begin a conversation: enter "/begin".\n' \
-                    'In the beginning of a conversation you will get a description of a person. ' \
-                    'During a dialogue you need to act as if you were this person ' \
-                    '(e.g. if your profile says "I study arts in a university", you can say that you are an arts student).\n' \
-                    'To end a conversation: enter "/end".\n' \
-                    'When the dialogue is finished, you will be asked to evaluate it:\n' \
-                    '1) you will need to rate a conversation from 1 (bad) to 5 (excellent)\n' \
-                    '2) you will be given two descriptions of a person. Choose the one which belongs to your peer.\n' \
-                    'To complain about a chatbots bad behaviour (insults, profanities, etc.) enter "/complain".'
+        help_txt = self.messages('help')
         if messenger.messenger_specific_help:
             help_txt += '\n\n' + messenger.messenger_specific_help
         await messenger.send_message_to_user(user, help_txt, False)
@@ -302,26 +298,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'welcome message requested')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        welcome_txt = '1. To start a dialog type or choose  a "/begin" command.\n' \
-                      '2. You will be connected to a peer or, if no peer is available at the moment, ' \
-                      'you’ll receive the message "Please wait for you partner".\n' \
-                      '3. Peer might be a bot or another human evaluator.\n' \
-                      '4. After you were connected with your peer you will receive a starting message - ' \
-                      'a description of a person.\n' \
-                      '5. During a dialogue you need to act as if you were this person ' \
-                      '(e.g.if your profile says "I study arts in a university", ' \
-                      'you can say that you are an arts student).\n' \
-                      '6. Please score every utterance of your peer with a ‘thumb UP’ button if you like it, ' \
-                      'and ‘thumb DOWN’ button in the opposite case.\n' \
-                      '7. To finish the conversation type or choose a command / end.\n' \
-                      '8. If you were insulted type / complain or choose command / complain from menu.\n' \
-                      '9. When the conversation is finished, ' \
-                      'you will receive a request to score the overall quality of the dialog from 1 (bad) to 5 (excellent).\n' \
-                      '10. Also you will be given two descriptions of a person. Choose the one which belongs to your peer.\n' \
-                      '11. If your peer ends the dialog before you, you will also receive a scoring request.\n' \
-                      '12. Your conversations with a peer will be recorded for further use. ' \
-                      'By starting a chat you give permission for your anonymised conversation data to be ' \
-                      'released publicly under Apache License Version 2.0 https://www.apache.org / licenses / LICENSE - 2.0.'
+        welcome_txt = self.messages('start')
 
         await messenger.send_message_to_user(user, welcome_txt, False, keyboard_buttons=['/begin', '/help'])
 
@@ -334,14 +311,13 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                                self.UserState.IN_DIALOG |
                                                self.UserState.EVALUATING |
                                                self.UserState.WAITING_FOR_PARTNER_EVALUATION,
-                                               'You are not in a dialog. Complaining is not available'):
+                                               self.messages('complaining_not_available')):
             return
         conv = self._conversations[user]
         result = await self.dialog_handler.complain(conv.conv_id, user)
-        info_txt = "Your complaint has been recorded and will be examined by the system administrator. Note that " \
-                   "your conversation is still active. You can always use /end command to end it"
-        fail_msg = 'Could not save your complaint. Have the dialog even started? You cannot complain when there is ' \
-                   'no messages in a dialog'
+        info_txt = self.messages('complaining_success')
+        fail_msg = self.messages('complaining_fail')
+
         await messenger.send_message_to_user(user,
                                              info_txt if result else fail_msg,
                                              False)
@@ -353,16 +329,14 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         if not await self._validate_user_state(user,
                                                self.UserState.IDLE,
-                                               'You are in a dialog. Bot setting is not available. Please finish it '
-                                               'and retry bot setting'):
+                                               self.messages('bot_setting_not_available')):
             return
 
         if self.allow_set_bot:
             self._user_states[user] = self.UserState.WAITING_FOR_BOT_TOKEN
-            set_bot_txt = 'Enter bot token to set default bot or /unset command to unset default bot for your user ' \
-                          'in this channel:'
+            set_bot_txt = self.messages('bot_setting_enter_token')
         else:
-            set_bot_txt = 'Bot setting is not allowed'
+            set_bot_txt = self.messages('bot_setting_not_allowed')
 
         await messenger.send_message_to_user(user, set_bot_txt, False)
 
@@ -376,24 +350,23 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
             if bot_token == '/unset':
                 user.update(assigned_test_bot=None)
-                set_bot_txt = 'Default bot for your user in this channel was unset'
+                set_bot_txt = self.messages('bot_seetting_bot_was_unset')
             else:
                 bot = Bot.objects.with_id(bot_token)
 
                 if bot:
                     user.update(assigned_test_bot=bot)
-                    set_bot_txt = f'Bot with token {bot_token} was set as default for your user in this channel'
+                    set_bot_txt = self.messages('bot_setting_bot_was_set', bot_token)
                 else:
-                    set_bot_txt = f'No bot found with token: {bot_token}'
+                    set_bot_txt = self.messages('bot_setting_bot_was_not_found', bot_token)
 
             await messenger.send_message_to_user(user, set_bot_txt, False)
             self._user_states[user] = self.UserState.IDLE
             return
 
-        if not await self._validate_user_state(user, self.UserState.IN_DIALOG, 'Unexpected message. You are not in a '
-                                                                               'dialog yet or the dialog has already '
-                                                                               'been finished. Use /help command for '
-                                                                               'usage instructions'):
+        if not await self._validate_user_state(user,
+                                               self.UserState.IN_DIALOG,
+                                               self.messages('not_in_conversation_unexpected_message')):
             return
 
         conv = self._conversations[user]
@@ -420,7 +393,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     async def on_end_dialog(self, initiator: User):
         self.log.info(f'dialog end requested')
         user = await self._update_user_record_in_db(initiator)
-        if not await self._validate_user_state(user, self.UserState.IN_DIALOG, "You're not in a dialog now."):
+        if not await self._validate_user_state(user, self.UserState.IN_DIALOG, self.messages('not_in_dialog')):
             return
 
         conv = self._conversations[user]
@@ -430,9 +403,9 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'dialog evaluated')
         user = await self._update_user_record_in_db(evaluator)
         messenger = self._messenger_for_user(user)
-        if not await self._validate_user_state(user, self.UserState.EVALUATING, 'Evaluation is not allowed at the '
-                                                                                'moment. Use /help command for usage '
-                                                                                'instructions'):
+        if not await self._validate_user_state(user,
+                                               self.UserState.EVALUATING,
+                                               self.messages('evaluation_not_allowed')):
             return False
 
         conv = self._conversations[user]
@@ -443,7 +416,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                 await self._prepare_profile_sentences(user)
                 await self._request_next_profile_sentence_guess(user)
         else:
-            msg = 'Select a profile which, in your opinion, belongs to your partner: '
+            msg = self.messages('profile_selection_invitation')
             await messenger.request_profile_selection(user, msg, [x.description for x in conv.opponent_profile_options])
         return True
 
@@ -452,16 +425,16 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'partner profile selected')
         user = await self._update_user_record_in_db(evaluator)
         messenger = self._messenger_for_user(user)
+
         if not await self._validate_user_state(user,
                                                self.UserState.EVALUATING |
                                                self.UserState.WAITING_FOR_PARTNER_EVALUATION,
-                                               'Partner profile choosing is not '
-                                               'allowed at the moment. Use /help '
-                                               'command for usage instructions'):
+                                               self.messages('profile_selection_not_allowed')):
             return False
 
         conv = self._conversations[user]
         notify_user = True
+
         if self.guess_profile_sentence_by_sentence:
             notify_user = await self._on_profile_sentence_selected(user, profile_idx, sentence_idx)
         else:
@@ -469,23 +442,23 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await self.dialog_handler.select_other_peer_profile(conv.conv_id,
                                                                 user,
                                                                 profile_idx)
+
         if self._user_states[user] == self.UserState.WAITING_FOR_PARTNER_EVALUATION and notify_user:
             await messenger.send_message_to_user(user,
-                                                 'Evaluation saved. Waiting for your partner to finish evaluation',
+                                                 self.messages('evaluation_saved'),
                                                  False)
         return True
 
     async def start_conversation(self, conversation_id: int, own_peer: User, profile: PersonProfile):
-        self.log.info(f'conversation start')
+        self.log.info('conversation start')
         user = await self._update_user_record_in_db(own_peer)
         messenger = self._messenger_for_user(user)
 
         self._conversations[user] = self.ConversationRecord(conversation_id)
         self._user_states[user] = self.UserState.IN_DIALOG
 
-        await messenger.send_message_to_user(user, "Partner found!", False)
-        await messenger.send_message_to_user(user, "This is your profile. During the dialog pretend to be this person",
-                                             False)
+        await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
+        await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
         await messenger.send_message_to_user(user, profile.description, False, keyboard_buttons=['/end', '/complain'])
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
@@ -505,29 +478,30 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv.opponent_profile_options = other_peer_profile_options
         conv.opponent_profile_correct = other_peer_profile_correct
 
-        msg = 'Please evaluate the whole dialog using one of the buttons below'
+        msg = self.messages('evaluation_start')
 
         self._user_states[user] = self.UserState.EVALUATING
         await messenger.request_dialog_evaluation(user, msg, scores_range)
 
     async def finish_conversation(self, conversation_id: int):
-        # TODO: make sevret id printing switchable via config
         self.log.info(f'dialog {conversation_id} finished. Sending thank you message and cleaning up')
         users = [u for u, c in self._conversations.items() if c.conv_id == conversation_id]
-        # thanks_text = 'Dialog is finished. Thank you for participation! Save somewhere your secret conversation ID.'
-        thanks_text = 'Dialog is finished. Thank you for participation!'
+        thanks_text = self.messages('finish_conversation')
         messages_to_send = []
+
         for user in users:
             messenger = self._messenger_for_user(user)
-            # messages_to_send.append(messenger.send_message_to_user(user,
-            #                                                        f'Your secret id: {hex(conversation_id)}',
-            #                                                        False))
-            messages_to_send.append(messenger.send_message_to_user(user,
-                                                                   thanks_text,
-                                                                   False,
+
+            if self.reveal_dialog_id:
+                msg = self.messages('finish_conversation_show_id', hex(conversation_id))
+                messages_to_send.append(messenger.send_message_to_user(user, msg, False))
+
+            messages_to_send.append(messenger.send_message_to_user(user, thanks_text, False,
                                                                    keyboard_buttons=['/begin', '/help']))
+
             del self._conversations[user]
             del self._user_states[user]
+
         await asyncio.gather(*messages_to_send)
 
     async def on_conversation_failed(self, initiator: User, reason: AbstractGateway.ConversationFailReason):
@@ -539,14 +513,17 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         """
         messenger = self._messenger_for_user(initiator)
         self.log.info(f'failed to start conversation: {reason}')
+
         if reason == AbstractGateway.ConversationFailReason.PEER_NOT_FOUND:
-            text = 'No peers found 😔\nTry again later'
+            text = self.messages('failed_conversation_no_peers')
         elif reason == AbstractGateway.ConversationFailReason.BANNED:
-            text = 'You are banned from using the system'
+            text = self.messages('failed_conversation_banned')
         else:
             self.log.error(f'Unexpected reason: {reason}')
-            text = 'INTERNAL_ERROR'
+            text = self.messages('error')
+
         await messenger.send_message_to_user(initiator, text, False, keyboard_buttons=['/begin', '/help'])
+
         if initiator in self._conversations:
             del self._conversations[initiator]
         if initiator in self._user_states:
@@ -555,11 +532,13 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     async def _on_profile_sentence_selected(self, user: User, profile_idx: int,
                                             sentence_idx: Optional[int] = None) -> bool:
         conv = self._conversations[user]
+
         if sentence_idx is None:
             sentence_idx = conv.sentences_selected
 
         sentence = conv.shuffled_sentences[sentence_idx][profile_idx]
         new_choice = sentence_idx == conv.sentences_selected
+
         if new_choice:
             conv.sentences_selected += 1
 
@@ -570,6 +549,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         if conv.sentences_selected < len(conv.shuffled_sentences) and new_choice:
             await self._request_next_profile_sentence_guess(user)
+
         return new_choice
 
     async def _prepare_profile_sentences(self, user: User):
@@ -597,8 +577,9 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         messenger = self._messenger_for_user(user)
         conv = self._conversations[user]
 
-        msg = f'Which one of these sentences describes your partner better ' \
-              f'({conv.sentences_selected + 1}/{len(conv.shuffled_sentences)})?'
+        msg = self.messages('profile_selection_sentences_selection',
+                            conv.sentences_selected + 1,
+                            len(conv.shuffled_sentences))
 
         sentences = conv.shuffled_sentences[conv.sentences_selected]
         await messenger.request_profile_selection(user, msg, list(sentences), conv.sentences_selected)
@@ -606,22 +587,28 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     def _messenger_for_user(self, user: User):
         if user.user_key.platform in self._messengers:
             return self._messengers[user.user_key.platform]
+
         supported = list(filter(lambda x: x.supports_platform(user.user_key.platform), self._messengers.values()))
+
         if len(supported) > 1:
             self.log.warning(f'more than 1 messenger capable of handling {user.user_key.platform} platform was found')
         if len(supported) > 0:
             return supported[0]
+
         raise ValueError(f'No messengers capable of handling {user.user_key.platform} platform were found')
 
     @staticmethod
     async def _update_user_record_in_db(user: User) -> User:
         db_records = await run_sync_in_executor(User.objects, user_key=user.user_key)
+
         if (await run_sync_in_executor(db_records.count)) == 0:
             return await run_sync_in_executor(user.save)
         else:
             res = await run_sync_in_executor(lambda: db_records[0])
+
             if user.username:
                 res.username = user.username
+
             return await run_sync_in_executor(res.save)
 
     async def _validate_user_state(self, user: User, ok_states: UserState, error_message: str = '') -> bool:
@@ -633,9 +620,11 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         if state == self.UserState.IDLE:
             del self._user_states[user]
+
         if error_message and not result:
             messenger = self._messenger_for_user(user)
             await messenger.send_message_to_user(user, error_message, False)
+
         return result
 
 
