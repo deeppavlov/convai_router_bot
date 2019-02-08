@@ -350,7 +350,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
             if bot_token == '/unset':
                 user.update(assigned_test_bot=None)
-                set_bot_txt = self.messages('bot_seetting_bot_was_unset')
+                set_bot_txt = self.messages('bot_setting_bot_was_unset')
             else:
                 bot = Bot.objects.with_id(bot_token)
 
