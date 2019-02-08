@@ -42,9 +42,19 @@ complaining_not_available	You are not in a dialog. Complaining is not available.
 complaining_success	Your complaint has been recorded and will be examined by the system administrator. Note that your conversation is still active. You can always use /end command to end it.
 complaining_fail	Could not save your complaint. Have the dialog even started? You cannot complain when there is no messages in a dialog.
 bot_setting_not_available	You are in a dialog. Bot setting is not available. Please finish it and retry bot setting.
-bot_setting_enter_token	Enter bot token to set default bot or /unset command to unset default bot for your user in this channel:
+bot_setting_enter_token	"Your default bot is: {}
+
+Enter bot token to set default bot or:
+/unset command to unset default bot for your user in this channel
+/list command to list all active bots and their tokens
+/cancel command to cancel bot setting"
 bot_setting_not_allowed	Bot setting is not allowed.
 bot_setting_bot_was_unset	Default bot for your user in this channel was unset.
 bot_setting_bot_was_set	Bot with token {} was set as default for your user in this channel.
 bot_setting_bot_was_not_found	No bot found with token: {}
-	
+bot_setting_list_bots	"{}
+
+
+Bot: {}
+Token: {}"
+bot_setting_canceled	Bot setting was canceled.

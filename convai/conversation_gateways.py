@@ -334,7 +334,8 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         if self.allow_set_bot:
             self._user_states[user] = self.UserState.WAITING_FOR_BOT_TOKEN
-            set_bot_txt = self.messages('bot_setting_enter_token')
+            bot_name = user.assigned_test_bot.bot_name if user.assigned_test_bot else 'NONE'
+            set_bot_txt = self.messages('bot_setting_enter_token', bot_name)
         else:
             set_bot_txt = self.messages('bot_setting_not_allowed')
 
@@ -345,23 +346,38 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         user = await self._update_user_record_in_db(sender)
         messenger = self._messenger_for_user(user)
 
+        # Bot setting mode commands handling
         if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
+            user_state = self.UserState.WAITING_FOR_BOT_TOKEN
             bot_token = text.strip()
 
             if bot_token == '/unset':
                 user.update(assigned_test_bot=None)
                 set_bot_txt = self.messages('bot_setting_bot_was_unset')
+                user_state = self.UserState.IDLE
+            elif bot_token == '/list':
+                set_bot_txt = ''
+                bots = Bot.objects(banned=False)
+
+                for bot in bots:
+                    set_bot_txt = self.messages('bot_setting_list_bots', set_bot_txt, bot.bot_name, bot.token)
+
+                set_bot_txt.strip('\n')
+            elif bot_token == '/cancel':
+                set_bot_txt = self.messages('bot_setting_canceled')
+                user_state = self.UserState.IDLE
             else:
                 bot = Bot.objects.with_id(bot_token)
 
                 if bot:
                     user.update(assigned_test_bot=bot)
                     set_bot_txt = self.messages('bot_setting_bot_was_set', bot_token)
+                    user_state = self.UserState.IDLE
                 else:
                     set_bot_txt = self.messages('bot_setting_bot_was_not_found', bot_token)
 
             await messenger.send_message_to_user(user, set_bot_txt, False)
-            self._user_states[user] = self.UserState.IDLE
+            self._user_states[user] = user_state
             return
 
         if not await self._validate_user_state(user,
