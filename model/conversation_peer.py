@@ -1,4 +1,5 @@
 from typing import Union, List, Optional
+from uuid import UUID
 
 from mongoengine import *
 
@@ -9,6 +10,7 @@ from .user import User
 
 class ConversationPeer(EmbeddedDocument):
     peer: Union[Bot, User] = GenericReferenceField(choices=[Bot, User], required=True)
+    peer_conversation_guid: Optional[str] = StringField(required=True)
     assigned_profile: PersonProfile = ReferenceField(PersonProfile, required=True)
     dialog_evaluation_score: int = IntField(max_value=5, min_value=1)
     other_peer_profile_options: List[PersonProfile] = ListField(ReferenceField(PersonProfile))

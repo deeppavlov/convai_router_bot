@@ -140,13 +140,15 @@ class AbstractGateway(ABC):
         self._dialog_handler = NoopDialogHandler()
 
     @abstractmethod
-    async def start_conversation(self, conversation_id: int, own_peer: Union[User, Bot], profile: PersonProfile):
+    async def start_conversation(self, conversation_id: int, own_peer: Union[User, Bot], profile: PersonProfile,
+                                 peer_conversation_guid: str):
         """
         Handles the start of the conversation
 
         :param conversation_id: unique id of the conversation
         :param own_peer: User or Bot participating in a talk
         :param profile: a profile to "role-play" during this conversation
+        :param peer_conversation_guid: unique key which identifies User-Conversation pair
         """
         pass
 
@@ -227,9 +229,11 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         opponent_profile_correct: PersonProfile
         sentences_selected: int
         shuffled_sentences: List[Tuple[str, str]]
+        peer_conversation_guid: str
 
-        def __init__(self, conv_id):
+        def __init__(self, conv_id, peer_conversation_guid):
             self.conv_id = conv_id
+            self.peer_conversation_guid = peer_conversation_guid
             self.message_ids_map = {}
             self.opponent_profile_options = None
             self.opponent_profile_correct = None
@@ -460,17 +464,26 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                                                 profile_idx)
 
         if self._user_states[user] == self.UserState.WAITING_FOR_PARTNER_EVALUATION and notify_user:
-            await messenger.send_message_to_user(user,
-                                                 self.messages('evaluation_saved'),
-                                                 False)
+            if self.reveal_dialog_id:
+                peer_conversation_guid = self._conversations[user].peer_conversation_guid
+                await messenger.send_message_to_user(user,
+                                                     self.messages('evaluation_saved_show_id', peer_conversation_guid),
+                                                     False)
+            else:
+                await messenger.send_message_to_user(user,
+                                                     self.messages('evaluation_saved'),
+                                                     False)
+
         return True
 
-    async def start_conversation(self, conversation_id: int, own_peer: User, profile: PersonProfile):
+    async def start_conversation(self, conversation_id: int, own_peer: User, profile: PersonProfile,
+                                 peer_conversation_guid: str):
+
         self.log.info('conversation start')
         user = await self._update_user_record_in_db(own_peer)
         messenger = self._messenger_for_user(user)
 
-        self._conversations[user] = self.ConversationRecord(conversation_id)
+        self._conversations[user] = self.ConversationRecord(conversation_id, peer_conversation_guid)
         self._user_states[user] = self.UserState.IN_DIALOG
 
         await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
@@ -509,7 +522,8 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             messenger = self._messenger_for_user(user)
 
             if self.reveal_dialog_id:
-                msg = self.messages('finish_conversation_show_id', hex(conversation_id))
+                peer_conversation_guid = self._conversations[user].peer_conversation_guid
+                msg = self.messages('finish_conversation_show_id', peer_conversation_guid)
                 messages_to_send.append(messenger.send_message_to_user(user, msg, False))
 
             messages_to_send.append(messenger.send_message_to_user(user, thanks_text, False,
@@ -680,7 +694,9 @@ class BotsGateway(AbstractGateway):
         self._bot_queues = {}
         self._active_chats_trigrams = defaultdict(dict)
 
-    async def start_conversation(self, conversation_id: int, own_peer: Bot, profile: PersonProfile):
+    async def start_conversation(self, conversation_id: int, own_peer: Bot, profile: PersonProfile,
+                                 peer_conversation_guid: str):
+
         self.log.info(f'conversation {conversation_id} started with bot {own_peer.token}')
         bot = await self._get_bot(own_peer.token)
         q = self._get_queue(bot)

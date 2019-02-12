@@ -26,7 +26,7 @@ start_conversation_searching_for_peer	Searching for peer. Please wait...
 start_conversation_peer_found	Partner found!
 start_conversation_profile_assigning	This is your profile. During the dialog pretend to be this person:
 finish_conversation	Dialog is finished. Thank you for participation!
-finish_conversation_show_id	Conversation secret id: {}
+finish_conversation_show_id	Your conversation secret id: {}
 failed_conversation_no_peers	No peers found. Try again later.
 failed_conversation_banned	You are banned from using the system.
 error	INTERNAL_ERROR
@@ -35,6 +35,9 @@ not_in_dialog	You're not in a dialog now.
 evaluation_not_allowed	Evaluation is not allowed at the moment. Use /help command for usage instructions.
 evaluation_start	Please evaluate the whole dialog using one of the buttons below:
 evaluation_saved	Evaluation saved. Waiting for your partner to finish evaluation...
+evaluation_saved_show_id	"Evaluation saved. Your conversation secret id: {}
+
+Waiting for your partner to finish evaluation..."
 profile_selection_invitation	Select a profile which, in your opinion, belongs to your partner:
 profile_selection_not_allowed	Partner profile choosing is not allowed at the moment. Use /help command for usage instructions.
 profile_selection_sentences_selection	Which one of these sentences describes your partner better ({}/{})?

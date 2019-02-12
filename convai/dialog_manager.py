@@ -3,6 +3,7 @@ import enum
 import itertools
 import logging
 import random
+from uuid import uuid4
 from datetime import datetime, timedelta
 from numbers import Number
 from typing import Dict, Union, List, Optional
@@ -350,8 +351,10 @@ class DialogManager(AbstractDialogHandler):
 
     async def _instantiate_dialog(self, user: User, peer: Union[User, Bot]):
         log.info(f'instantiating the dialog')
-        conversation = Conversation(participant1=ConversationPeer(peer=user),
-                                    participant2=ConversationPeer(peer=peer))
+
+        conversation = Conversation(participant1=ConversationPeer(peer=user, peer_conversation_guid=uuid4().__str__()),
+                                    participant2=ConversationPeer(peer=peer, peer_conversation_guid=uuid4().__str__()))
+
         profiles = await run_sync_in_executor(PersonProfile.objects)
         profiles_count = await run_sync_in_executor(profiles.count)
 
@@ -379,7 +382,7 @@ class DialogManager(AbstractDialogHandler):
 
         for p in conversation.participants:
             target_gateway = self._gateway_for_peer(p)
-            await target_gateway.start_conversation(conv_id, p.peer, p.assigned_profile)
+            await target_gateway.start_conversation(conv_id, p.peer, p.assigned_profile, p.peer_conversation_guid)
 
         self._reset_inactivity_timer(conv_id)
 
