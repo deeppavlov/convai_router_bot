@@ -354,8 +354,20 @@ class DialogManager(AbstractDialogHandler):
                                     participant2=ConversationPeer(peer=peer))
         profiles = await run_sync_in_executor(PersonProfile.objects)
         profiles_count = await run_sync_in_executor(profiles.count)
+
+        first_profile_description = None
+
         for p in conversation.participants:
-            p.assigned_profile = profiles[random.randrange(profiles_count)]
+            if first_profile_description is None:
+                p.assigned_profile = profiles[random.randrange(profiles_count)]
+                first_profile_description = p.assigned_profile.description
+            else:
+                # try to select different profile if it exists
+                for _ in range(10000):
+                    second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
+                    if second_profile.description != first_profile_description:
+                        break
+                p.assigned_profile = second_profile
 
         while True:
             conv_id = random.getrandbits(31)
