@@ -417,8 +417,14 @@ class DialogManager(AbstractDialogHandler):
 
         to_await = []
         for i, p in enumerate(conversation.participants):
-            random_profile = await run_sync_in_executor(lambda: db_profiles[random.randrange(db_profiles_count)])
-            true_profile = conversation.participants[1 - i].assigned_profile
+            true_profile: PersonProfile = conversation.participants[1 - i].assigned_profile
+
+            # try to select different profile if it exists
+            for _ in range(10000):
+                random_profile: PersonProfile = \
+                    await run_sync_in_executor(lambda: db_profiles[random.randrange(db_profiles_count)])
+                if true_profile.description != random_profile.description:
+                    break
 
             profiles = [true_profile, random_profile]
             random.shuffle(profiles)
