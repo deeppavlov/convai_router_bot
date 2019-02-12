@@ -254,7 +254,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     guess_profile_sentence_by_sentence: bool
 
     def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool, reveal_dialog_id: bool,
-                 messages: MessagesWrapper):
+                 evaluation_options: dict, messages: MessagesWrapper):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
@@ -263,6 +263,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.guess_profile_sentence_by_sentence = guess_profile_sentence_by_sentence
         self.allow_set_bot = allow_set_bot
         self.reveal_dialog_id = reveal_dialog_id
+        self.evaluation_options = evaluation_options
 
         self.messages = messages
 
@@ -431,13 +432,17 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv = self._conversations[user]
         await self.dialog_handler.evaluate_dialog(conv.conv_id, user, score)
 
-        if self.guess_profile_sentence_by_sentence:
-            if not conv.shuffled_sentences:
-                await self._prepare_profile_sentences(user)
-                await self._request_next_profile_sentence_guess(user)
-        else:
-            msg = self.messages('profile_selection_invitation')
-            await messenger.request_profile_selection(user, msg, [x.description for x in conv.opponent_profile_options])
+        if self.evaluation_options['guess_profile']:
+            if self.guess_profile_sentence_by_sentence:
+                if not conv.shuffled_sentences:
+                    await self._prepare_profile_sentences(user)
+                    await self._request_next_profile_sentence_guess(user)
+            else:
+                msg = self.messages('profile_selection_invitation')
+                await messenger.request_profile_selection(user,
+                                                          msg,
+                                                          [x.description for x in conv.opponent_profile_options])
+
         return True
 
     async def on_other_peer_profile_selected(self, evaluator: User, profile_idx: int,
@@ -470,9 +475,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                                      self.messages('evaluation_saved_show_id', peer_conversation_guid),
                                                      False)
             else:
-                await messenger.send_message_to_user(user,
-                                                     self.messages('evaluation_saved'),
-                                                     False)
+                await messenger.send_message_to_user(user, self.messages('evaluation_saved'), False)
 
         return True
 
@@ -486,9 +489,14 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self._conversations[user] = self.ConversationRecord(conversation_id, peer_conversation_guid)
         self._user_states[user] = self.UserState.IN_DIALOG
 
-        await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
-        await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
-        await messenger.send_message_to_user(user, profile.description, False, keyboard_buttons=['/end', '/complain'])
+        if self.evaluation_options['guess_profile']:
+            await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
+            await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
+            await messenger.send_message_to_user(user, profile.description, False,
+                                                 keyboard_buttons=['/end', '/complain'])
+        else:
+            await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
+                                                 keyboard_buttons=['/end', '/complain'])
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
