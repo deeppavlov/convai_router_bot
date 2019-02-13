@@ -398,7 +398,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         user = await self._update_user_record_in_db(sender)
         messenger = self._messenger_for_user(user)
 
-        # Bot setting mode commands handling
+        # Bot setting mode bot token handling
         if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
             bot_token = text.strip()
             bot = Bot.objects.with_id(bot_token)
