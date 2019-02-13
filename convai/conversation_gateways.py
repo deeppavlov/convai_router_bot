@@ -420,7 +420,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv = self._conversations[user]
         await self.dialog_handler.trigger_dialog_end(conv.conv_id, user)
 
-    async def on_evaluate_dialog(self, evaluator: User, score: int) -> bool:
+    async def on_evaluate_dialog(self, evaluator: User, score: Optional[int]) -> bool:
         self.log.info(f'dialog evaluated')
         user = await self._update_user_record_in_db(evaluator)
         messenger = self._messenger_for_user(user)
@@ -518,7 +518,11 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         msg = self.messages('evaluation_start')
 
         self._user_states[user] = self.UserState.EVALUATING
-        await messenger.request_dialog_evaluation(user, msg, scores_range)
+
+        if self.evaluation_options['score_dialog']:
+            await messenger.request_dialog_evaluation(user, msg, scores_range)
+        else:
+            await self.on_evaluate_dialog(user, None)
 
     async def finish_conversation(self, conversation_id: int):
         self.log.info(f'dialog {conversation_id} finished. Sending thank you message and cleaning up')

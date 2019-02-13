@@ -22,6 +22,7 @@ dialog:
   reveal_dialog_id: false
 
 evaluation_options:
+  score_dialog: true
   guess_profile: true
 
 logging:
