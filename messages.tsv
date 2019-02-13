@@ -49,16 +49,11 @@ bot_setting_enter_token	"Your default bot is: {}
 
 Enter bot token to set default bot or:
 /unsetbot command to unset default bot for your user in this channel
-/listbots command to list all active bots and their tokens
+/listbots command to list all active bots
 /cancelsetbot command to cancel bot setting"
 bot_setting_not_allowed	Bot setting is not allowed.
 bot_setting_bot_was_unset	Default bot for your user in this channel was unset.
 bot_setting_not_in_set_bot	You are not in bot setting mode now. Please run /setbot command.
-bot_setting_bot_was_set	Bot with token {} was set as default for your user in this channel.
+bot_setting_bot_was_set	You successfully set bot: {}
 bot_setting_bot_was_not_found	No bot found with token: {}
-bot_setting_list_bots	"{}
-
-
-Bot: {}
-Token: {}"
 bot_setting_canceled	Bot setting was canceled.

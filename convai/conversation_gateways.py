@@ -327,7 +327,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                              info_txt if result else fail_msg,
                                              False)
 
-    async def on_set_bot(self, user: User):
+    async def on_enter_set_bot(self, user: User):
         self.log.info(f'user requested for setting bot for conversation')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
@@ -346,21 +346,38 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         await messenger.send_message_to_user(user, set_bot_txt, False)
 
+    async def on_set_bot(self, user: User, bot_token: str):
+        self.log.info(f'user entered bot token')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+
+        if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
+            bot_token = bot_token.strip()
+            bot = Bot.objects.with_id(bot_token)
+
+            if bot:
+                user.update(assigned_test_bot=bot)
+                set_bot_txt = self.messages('bot_setting_bot_was_set', bot.bot_name)
+                self._user_states[user] = self.UserState.IDLE
+            else:
+                set_bot_txt = self.messages('bot_setting_bot_was_not_found', bot_token)
+
+            await messenger.send_message_to_user(user, set_bot_txt, False)
+        else:
+            await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
+
+        return True
+
     async def on_list_bot(self, user: User):
         self.log.info(f'user requested for listing bots available for setting')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
 
         if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
-            bot_list_str = ''
             bots = Bot.objects(banned=False)
-
-            for bot in bots:
-                bot_list_str = self.messages('bot_setting_list_bots', bot_list_str, bot.bot_name, bot.token)
-
-            bot_list_str.strip('\n')
-
-            await messenger.send_message_to_user(user, bot_list_str, False)
+            bot_names = [bot.bot_name for bot in bots]
+            bot_tokens = [bot.token for bot in bots]
+            await messenger.list_bots(user, bot_names, bot_tokens)
         else:
             await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
 
@@ -396,21 +413,10 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     async def on_message_received(self, sender: User, text: str, time: datetime, msg_id: str = None):
         self.log.info(f'message received')
         user = await self._update_user_record_in_db(sender)
-        messenger = self._messenger_for_user(user)
 
-        # Bot setting mode bot token handling
+        # Bot setting mode: bot token handling
         if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
-            bot_token = text.strip()
-            bot = Bot.objects.with_id(bot_token)
-
-            if bot:
-                user.update(assigned_test_bot=bot)
-                set_bot_txt = self.messages('bot_setting_bot_was_set', bot_token)
-                self._user_states[user] = self.UserState.IDLE
-            else:
-                set_bot_txt = self.messages('bot_setting_bot_was_not_found', bot_token)
-
-            await messenger.send_message_to_user(user, set_bot_txt, False)
+            await self.on_set_bot(user, text)
             return
 
         if not await self._validate_user_state(user,
