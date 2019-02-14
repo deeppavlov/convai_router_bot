@@ -192,6 +192,7 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
                 uclass = 'Bot'
             obj['user_class'] = uclass
             obj['user_id'] = uid
+            obj['user_external_id'] = u.peer_conversation_guid
             user_map[u.peer] = (uid, uclass)
 
             other_profile_true = users[j].assigned_profile.sentences
