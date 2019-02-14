@@ -105,10 +105,10 @@ def handle_training_conversations(args):
     convs_valid = convs[convs_num_train:]
 
     with open(save_path_train, 'w') as f_train:
-        json.dump(convs_train, f_train, indent=2)
+        json.dump(convs_train, f_train, indent=2, ensure_ascii=False)
 
     with open(save_path_valid, 'w') as f_valid:
-        json.dump(convs_valid, f_valid, indent=2)
+        json.dump(convs_valid, f_valid, indent=2, ensure_ascii=False)
 
     print(f'Training and validation datasets for {begin_name_part[1:]} {end_name_part[1:]} saved in {save_dir}')
 
@@ -127,7 +127,7 @@ def handle_export_conversations(args):
     convs = util.export_training_conversations(args.begin, args.end, reveal_sender=True)
 
     with open(save_path, 'w', newline='') as f_tsv:
-        fieldnames = ['INPUT:text', 'GOLDEN:result', 'HINT:text', 'TASK:id', 'TASK:overlap', 'TASK:remaining_overlap']
+        fieldnames = ['INPUT:text', 'INPUT:persona1', 'INPUT:persona2', 'GOLDEN:quality', 'HINT:text', 'TASK:id', 'TASK:overlap', 'TASK:remaining_overlap']
         writer = csv.DictWriter(f_tsv,
                                 fieldnames=fieldnames,
                                 dialect='excel-tab',
@@ -139,11 +139,29 @@ def handle_export_conversations(args):
 
         for dialog in convs:
             replicas = []
+            sender_alias = {}
+            persona1_string, persona2_string = '', ''
+            for i, user in enumerate(dialog['users'], 1):
+                sender_alias[user['user_id']] = ('Participant ' + str(i), 'participant_' + str(i))
+                cur_persona = [f'<span class=profile>']
+                for p in user['profile']:
+                    cur_persona.append(f'{p}<br />')
+                cur_persona.append(f'</span>')
+                cur_persona_str = ''.join(cur_persona)
+                if i == 1:
+                    persona1_string = cur_persona_str
+                elif i == 2:
+                    persona2_string = cur_persona_str
 
+            utt_per_user = {k: 0 for k in sender_alias.keys()}
             for replica in dialog['dialog']:
-                sender = replica['sender_class']
+                utt_per_user[replica['sender']] += 1
+                sender = sender_alias[replica['sender']][0]
+                sender_style = sender_alias[replica['sender']][1]
                 text = replica['text']
-                replicas.append(f'<span class={sender.lower()}>{sender}: {text}</span><br>')
+                replicas.append(f'<span class={sender_style}>{sender}: {text}</span><br />')
+            if min(utt_per_user.values()) < 3:
+                continue
 
             #replicas_delimiter = chr(10)
             replicas_delimiter = ''
@@ -151,6 +169,8 @@ def handle_export_conversations(args):
             replicas_string = f'{chr(34)}{replicas_string}{chr(34)}'
 
             writer.writerow({'INPUT:text': replicas_string,
+                             'INPUT:persona1': persona1_string, 
+                             'INPUT:persona2': persona2_string,
                              'TASK:id': dialog['dialog_id'],
                              'TASK:overlap': 'infinite',
                              'TASK:remaining_overlap': 'infinite'})
