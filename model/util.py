@@ -199,7 +199,7 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             if u.other_peer_profile_selected is not None:
                 other_profile_hyp = u.other_peer_profile_selected.sentences
             else:
-                other_profile_hyp = []
+                other_profile_hyp = None
 
             if other_profile_hyp is None:
                 obj['profile_match'] = 0
@@ -208,8 +208,11 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             else:
                 obj['profile_match'] = -1
 
+            other_profile_options = [pr.sentences for pr in u.other_peer_profile_options]
+
             obj['dialog_evaluation'] = u.dialog_evaluation_score
-            obj['profile'] = u.assigned_profile.sentences 
+            obj['profile'] = u.assigned_profile.sentences
+            obj['other_profile_options'] = other_profile_options
             training_conv['users'].append(obj)
 
         for msg in conv.messages:
