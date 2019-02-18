@@ -254,7 +254,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     guess_profile_sentence_by_sentence: bool
 
     def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool, reveal_dialog_id: bool,
-                 evaluation_options: dict, messages: MessagesWrapper):
+                 evaluation_options: dict, messages: MessagesWrapper, keyboards: dict):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
@@ -266,6 +266,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.evaluation_options = evaluation_options
 
         self.messages = messages
+        self.keyboards = keyboards
 
     def add_messengers(self, *messengers: AbstractMessenger):
         self._messengers.update({m.platform: m for m in messengers if isinstance(m, AbstractMessenger)})
@@ -305,7 +306,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         messenger = self._messenger_for_user(user)
         welcome_txt = self.messages('start')
 
-        await messenger.send_message_to_user(user, welcome_txt, False, keyboard_buttons=['/begin', '/help'])
+        await messenger.send_message_to_user(user, welcome_txt, False, keyboard_buttons=self.keyboards['idle'])
 
     async def on_complain(self, user: User):
         self.log.info(f'user complained')
@@ -344,7 +345,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         else:
             set_bot_txt = self.messages('bot_setting_not_allowed')
 
-        await messenger.send_message_to_user(user, set_bot_txt, False)
+        await messenger.send_message_to_user(user, set_bot_txt, False, keyboard_buttons=self.keyboards['set_bot'])
 
     async def on_set_bot(self, user: User, bot_token: str):
         self.log.info(f'user entered bot token')
@@ -358,11 +359,13 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             if bot:
                 user.update(assigned_test_bot=bot)
                 set_bot_txt = self.messages('bot_setting_bot_was_set', bot.bot_name)
+                keyboard_buttons = self.keyboards['idle']
                 self._user_states[user] = self.UserState.IDLE
             else:
                 set_bot_txt = self.messages('bot_setting_bot_was_not_found', bot_token)
+                keyboard_buttons = self.keyboards['set_bot']
 
-            await messenger.send_message_to_user(user, set_bot_txt, False)
+            await messenger.send_message_to_user(user, set_bot_txt, False, keyboard_buttons=keyboard_buttons)
         else:
             await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
 
@@ -390,7 +393,10 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
             user.update(assigned_test_bot=None)
-            await messenger.send_message_to_user(user, self.messages('bot_setting_bot_was_unset'), False)
+            await messenger.send_message_to_user(user,
+                                                 self.messages('bot_setting_bot_was_unset'),
+                                                 False,
+                                                 keyboard_buttons=self.keyboards['idle'])
             self._user_states[user] = self.UserState.IDLE
         else:
             await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
@@ -403,7 +409,10 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         messenger = self._messenger_for_user(user)
 
         if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
-            await messenger.send_message_to_user(user, self.messages('bot_setting_canceled'), False)
+            await messenger.send_message_to_user(user,
+                                                 self.messages('bot_setting_canceled'),
+                                                 False,
+                                                 keyboard_buttons=self.keyboards['idle'])
             self._user_states[user] = self.UserState.IDLE
         else:
             await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
@@ -527,10 +536,10 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
             await messenger.send_message_to_user(user, profile.description, False,
-                                                 keyboard_buttons=['/end', '/complain'])
+                                                 keyboard_buttons=self.keyboards['in_dialog'])
         else:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
-                                                 keyboard_buttons=['/end', '/complain'])
+                                                 keyboard_buttons=self.keyboards['in_dialog'])
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
@@ -573,7 +582,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                 messages_to_send.append(messenger.send_message_to_user(user, msg, False))
 
             messages_to_send.append(messenger.send_message_to_user(user, thanks_text, False,
-                                                                   keyboard_buttons=['/begin', '/help']))
+                                                                   keyboard_buttons=self.keyboards['idle']))
 
             del self._conversations[user]
             del self._user_states[user]
@@ -598,7 +607,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             self.log.error(f'Unexpected reason: {reason}')
             text = self.messages('error')
 
-        await messenger.send_message_to_user(initiator, text, False, keyboard_buttons=['/begin', '/help'])
+        await messenger.send_message_to_user(initiator, text, False, keyboard_buttons=self.keyboards['idle'])
 
         if initiator in self._conversations:
             del self._conversations[initiator]

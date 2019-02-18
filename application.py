@@ -5,7 +5,6 @@ import os
 import re
 from functools import wraps
 from json import JSONDecodeError
-from pathlib import Path
 from typing import Dict, Any, Optional, Callable
 from urllib.parse import urlparse
 from pathlib import Path
@@ -88,11 +87,25 @@ async def init():
     messages_file = os.path.join(os.path.dirname(__file__), 'settings/messages.tsv')
     messages = MessagesWrapper(Path(messages_file).resolve())
 
+    keyboards_file = os.path.join(os.path.dirname(__file__), 'settings/keyboards.yml')
+    with open(keyboards_file, 'r') as f:
+        keyboards = yaml.safe_load(f.read())
+
+    # configure keyboards
+    keyboards['in_dialog'] = keyboards['in_dialog']['default']
+    keyboards['set_bot'] = keyboards['set_bot']['default']
+
+    if config['dialog']['allow_set_bot']:
+        keyboards['idle'] = keyboards['idle']['setbot']
+    else:
+        keyboards['idle'] = keyboards['idle']['default']
+
     humans_gateway = HumansGateway(config['dialog']['guess_profile_sentence_by_sentence'],
                                    config['dialog']['allow_set_bot'],
                                    config['dialog']['reveal_dialog_id'],
                                    config['evaluation_options'],
-                                   messages)
+                                   messages,
+                                   keyboards)
 
     bots_gateway = BotsGateway(config['dialog']['n_bad_messages_in_a_row_threshold'])
 
