@@ -54,7 +54,7 @@ async def init():
                 recursive_update(d1[k], v)
 
     config = {}
-    config_files = [os.path.join(os.path.dirname(__file__), 'config.yml'),
+    config_files = [os.path.join(os.path.dirname(__file__), 'settings/config.yml'),
                     '/etc/convai-router/config.yml']
 
     for filename in config_files:
@@ -85,7 +85,7 @@ async def init():
 
     mongoengine.connect(host=config['mongo_uri'])
 
-    messages_file = os.path.join(os.path.dirname(__file__), 'messages.tsv')
+    messages_file = os.path.join(os.path.dirname(__file__), 'settings/messages.tsv')
     messages = MessagesWrapper(Path(messages_file).resolve())
 
     humans_gateway = HumansGateway(config['dialog']['guess_profile_sentence_by_sentence'],
