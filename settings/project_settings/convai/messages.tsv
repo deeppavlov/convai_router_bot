@@ -1,0 +1,59 @@
+message_type	message_text
+help	"This is personalized chatbot - chatbot with a pre-defined personality.
+Please have a chat with it and evaluate its performance.
+To begin a conversation: enter ""/begin"".
+In the beginning of a conversation you will get a description of a person.
+During a dialogue you need to act as if you were this person (e.g. if your profile says ""I study arts in a university"", you can say that you are an arts student).
+To end a conversation: enter ""/end"".
+When the dialogue is finished, you will be asked to evaluate it:
+1) you will need to rate a conversation from 1 (bad) to 5 (excellent);
+2) you will be given two descriptions of a person. Choose the one which belongs to your peer.
+To complain about a chatbots bad behaviour (insults, profanities, etc.) enter ""/complain""."
+start	"1. To start a dialog type or choose  a ""/begin"" command.
+2. You will be connected to a peer or, if no peer is available at the moment, you will receive the message ""Please wait for you partner"".
+3. Peer might be a bot or another human evaluator.
+4. After you were connected with your peer you will receive a starting message - a description of a person.
+5. During a dialogue you need to act as if you were this person (e.g.if your profile says ""I study arts in a university"", you can say that you are an arts student).
+6. Please score every utterance of your peer with a thumb up button if you like it, and thumb down button in the opposite case.
+7. To finish the conversation type or choose a command /end.
+8. If you were insulted type / complain or choose command / complain from menu.
+9. When the conversation is finished, you will receive a request to score the overall quality of the dialog from 1 (bad) to 5 (excellent).
+10. Also you will be given two descriptions of a person. Choose the one which belongs to your peer.
+11. If your peer ends the dialog before you, you will also receive a scoring request.
+12. Your conversations with a peer will be recorded for further use. By starting a chat you give permission for your anonymized conversation data to be released publicly under Apache License Version 2.0 https://www.apache.org / licenses / LICENSE – 2.0."
+start_conversation_can_not	Cannot start a new conversation. Please finish your current dialog first. Use /help command for usage instructions.
+start_conversation_searching_for_peer	Searching for peer. Please wait...
+start_conversation_peer_found	Partner found!
+start_conversation_profile_assigning	This is your profile. During the dialog pretend to be this person:
+finish_conversation	Dialog is finished. Thank you for participation!
+finish_conversation_show_id	Your conversation secret id: {}
+failed_conversation_no_peers	No peers found. Try again later.
+failed_conversation_banned	You are banned from using the system.
+error	INTERNAL_ERROR
+not_in_conversation_unexpected_message	Unexpected message. You are not in a dialog yet or the dialog has already been finished. Use /help command for usage instructions.
+not_in_dialog	You're not in a dialog now.
+evaluation_not_allowed	Evaluation is not allowed at the moment. Use /help command for usage instructions.
+evaluation_start	Please evaluate the whole dialog using one of the buttons below:
+evaluation_saved	Evaluation saved. Waiting for your partner to finish evaluation...
+evaluation_saved_show_id	"Evaluation saved. Your conversation secret id: {}
+
+Waiting for your partner to finish evaluation..."
+profile_selection_invitation	Select a profile which, in your opinion, belongs to your partner:
+profile_selection_not_allowed	Partner profile choosing is not allowed at the moment. Use /help command for usage instructions.
+profile_selection_sentences_selection	Which one of these sentences describes your partner better ({}/{})?
+complaining_not_available	You are not in a dialog. Complaining is not available.
+complaining_success	Your complaint has been recorded and will be examined by the system administrator. Note that your conversation is still active. You can always use /end command to end it.
+complaining_fail	Could not save your complaint. Have the dialog even started? You cannot complain when there is no messages in a dialog.
+bot_setting_not_available	You are in a dialog. Bot setting is not available. Please finish it and retry bot setting.
+bot_setting_enter_token	"Your default bot is: {}
+
+Enter bot token to set default bot or:
+/unsetbot command to unset default bot for your user in this channel
+/listbots command to list all active bots
+/cancelsetbot command to cancel bot setting"
+bot_setting_not_allowed	Bot setting is not allowed.
+bot_setting_bot_was_unset	Default bot for your user in this channel was unset.
+bot_setting_not_in_set_bot	You are not in bot setting mode now. Please run /setbot command.
+bot_setting_bot_was_set	You successfully set bot: {}
+bot_setting_bot_was_not_found	No bot found with token: {}
+bot_setting_canceled	Bot setting was canceled.
