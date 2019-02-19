@@ -7,12 +7,12 @@ facebook:
 
 telegram:
   webhook: ${TG_WEBHOOK:https://2258.lnsigo.mipt.ru/tg}
-  token: ${TG_TOKEN:751660805:AAGRy0KHv36qf-QHlMSGp3BXWtimNLxogaM}
+  token: ${TG_TOKEN:<none>}
 
 dialog:
   max_time_in_lobby: 1
   human_bot_ratio: 0.0
-  inactivity_timeout: 60
+  inactivity_timeout: 300
   max_length: 1000
   evaluation_score_from: 1
   evaluation_score_to: 5
