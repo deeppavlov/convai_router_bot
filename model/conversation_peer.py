@@ -1,5 +1,4 @@
 from typing import Union, List, Optional
-from uuid import UUID
 
 from mongoengine import *
 
@@ -16,6 +15,7 @@ class ConversationPeer(EmbeddedDocument):
     other_peer_profile_options: List[PersonProfile] = ListField(ReferenceField(PersonProfile))
     other_peer_profile_selected: Optional[PersonProfile] = ReferenceField(PersonProfile)
     other_peer_profile_selected_parts: List[str] = ListField(StringField())
+    triggered_dialog_end = BooleanField(default=False)
 
     @property
     def other_peer_selected_profile_assembled(self) -> Optional[PersonProfile]:

@@ -161,6 +161,12 @@ class DialogManager(AbstractDialogHandler):
         log.info(f'end of conversation {conversation_id} triggered')
         self._validate_conversation_and_peer(conversation_id, peer)
 
+        conversation = self._active_dialogs[conversation_id]
+
+        for participant in conversation.participants:
+            if participant.peer == peer:
+                participant.triggered_dialog_end = True
+
         await self._initiate_final_evaluation(conversation_id)
 
     async def evaluate_dialog(self, conversation_id: int, evaluator: Union[User, Bot], score: Optional[int]):
