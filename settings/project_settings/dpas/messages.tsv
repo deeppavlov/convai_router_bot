@@ -1,0 +1,47 @@
+message_type	message_text
+help	"Run /setbot then /listbots to select DeepPavlov config you wish to chat.
+To start conversation run /begin.
+To end conversation run /end."
+start	"Hello! iPavlov Fabulous Bot salutes you!
+
+Run /setbot then /listbots to select DeepPavlov config you wish to chat.
+To start conversation run /begin.
+To end conversation run /end.
+
+Please note, that it will take a bit of time from some bots to answer you. Be patient."
+start_conversation_can_not	Cannot start a new conversation. Please finish your current dialog first. Use /help command for usage instructions.
+start_conversation_searching_for_peer	Searching for peer. Please wait...
+start_conversation_peer_found	Partner found!
+start_conversation_profile_assigning	This is your profile. During the dialog pretend to be this person:
+finish_conversation	Dialog is finished. Thank you for participation!
+finish_conversation_show_id	Your conversation secret id: {}
+failed_conversation_no_peers	No peers found. Try again later.
+failed_conversation_banned	You are banned from using the system.
+error	INTERNAL_ERROR
+not_in_conversation_unexpected_message	Unexpected message. You are not in a dialog yet or the dialog has already been finished. Use /help command for usage instructions.
+not_in_dialog	You're not in a dialog now.
+evaluation_not_allowed	Evaluation is not allowed at the moment. Use /help command for usage instructions.
+evaluation_start	Please evaluate the whole dialog using one of the buttons below:
+evaluation_saved	Evaluation saved. Waiting for your partner to finish evaluation...
+evaluation_saved_show_id	"Evaluation saved. Your conversation secret id: {}
+
+Waiting for your partner to finish evaluation..."
+profile_selection_invitation	Select a profile which, in your opinion, belongs to your partner:
+profile_selection_not_allowed	Partner profile choosing is not allowed at the moment. Use /help command for usage instructions.
+profile_selection_sentences_selection	Which one of these sentences describes your partner better ({}/{})?
+complaining_not_available	You are not in a dialog. Complaining is not available.
+complaining_success	Your complaint has been recorded and will be examined by the system administrator. Note that your conversation is still active. You can always use /end command to end it.
+complaining_fail	Could not save your complaint. Have the dialog even started? You cannot complain when there is no messages in a dialog.
+bot_setting_not_available	You are in a dialog. Bot setting is not available. Please finish it and retry bot setting.
+bot_setting_enter_token	"Your default bot is: {}
+
+Enter bot token to set default bot or:
+/unsetbot command to unset default bot for your user in this channel
+/listbots command to list all active bots
+/cancelsetbot command to cancel bot setting"
+bot_setting_not_allowed	Bot setting is not allowed.
+bot_setting_bot_was_unset	Default bot for your user in this channel was unset.
+bot_setting_not_in_set_bot	You are not in bot setting mode now. Please run /setbot command.
+bot_setting_bot_was_set	You successfully set bot: {}
+bot_setting_bot_was_not_found	No bot found with token: {}
+bot_setting_canceled	Bot setting was canceled.

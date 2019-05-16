@@ -3,6 +3,7 @@ import enum
 import itertools
 import logging
 import random
+from uuid import uuid4
 from datetime import datetime, timedelta
 from numbers import Number
 from typing import Dict, Union, List, Optional
@@ -43,7 +44,8 @@ class DialogManager(AbstractDialogHandler):
 
     def __init__(self, max_time_in_lobby: Number, human_bot_ratio: float, inactivity_timeout: Number,
                  length_threshold: int, bots_gateway: BotsGateway, humans_gateway: HumansGateway,
-                 dialog_eval_min: int, dialog_eval_max: int, scheduler: BaseScheduler = None):
+                 dialog_eval_min: int, dialog_eval_max: int, evaluation_options: dict,
+                 scheduler: BaseScheduler = None):
         """
         Dialog manager is responsible for handling conversations. Including matching with human and bot peers, dialog 
         setup, dialog evaluation, etc.
@@ -61,6 +63,7 @@ class DialogManager(AbstractDialogHandler):
         :param humans_gateway: An object capable of handling system-to-human communication
         :param dialog_eval_min: min score for dialog evaluation
         :param dialog_eval_max: max score for dialog evaluation
+        :param evaluation_options: dialog evaluation options
         :param scheduler: custom non-blocking scheduler object which conforms to the interface of
             apscheduler.schedulers.base.BaseScheduler. Default value is BackgroundScheduler().
         """
@@ -73,6 +76,7 @@ class DialogManager(AbstractDialogHandler):
         self.inactivity_timeout = inactivity_timeout
         self.human_bot_ratio = human_bot_ratio
         self.max_time_in_lobby = max_time_in_lobby
+        self.evaluation_options = evaluation_options
 
         self._lobby = {}
         self._active_dialogs = {}
@@ -157,6 +161,12 @@ class DialogManager(AbstractDialogHandler):
         log.info(f'end of conversation {conversation_id} triggered')
         self._validate_conversation_and_peer(conversation_id, peer)
 
+        conversation = self._active_dialogs[conversation_id]
+
+        for participant in conversation.participants:
+            if participant.peer == peer:
+                participant.triggered_dialog_end = True
+
         await self._initiate_final_evaluation(conversation_id)
 
     async def evaluate_dialog(self, conversation_id: int, evaluator: Union[User, Bot], score: Optional[int]):
@@ -179,6 +189,10 @@ class DialogManager(AbstractDialogHandler):
             conversation_peer.dialog_evaluation_score = score
 
         self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.SCORE_GIVEN
+
+        if not self.evaluation_options['guess_profile']:
+            self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.PROFILE_SELECTED
+
         await self._handle_evaluation_state(conversation_id)
 
     async def select_other_peer_profile(self, conversation_id: int, evaluator: Union[User, Bot],
@@ -350,12 +364,26 @@ class DialogManager(AbstractDialogHandler):
 
     async def _instantiate_dialog(self, user: User, peer: Union[User, Bot]):
         log.info(f'instantiating the dialog')
-        conversation = Conversation(participant1=ConversationPeer(peer=user),
-                                    participant2=ConversationPeer(peer=peer))
+
+        conversation = Conversation(participant1=ConversationPeer(peer=user, peer_conversation_guid=uuid4().__str__()),
+                                    participant2=ConversationPeer(peer=peer, peer_conversation_guid=uuid4().__str__()))
+
         profiles = await run_sync_in_executor(PersonProfile.objects)
         profiles_count = await run_sync_in_executor(profiles.count)
+
+        first_profile_description = None
+
         for p in conversation.participants:
-            p.assigned_profile = profiles[random.randrange(profiles_count)]
+            if first_profile_description is None:
+                p.assigned_profile = profiles[random.randrange(profiles_count)]
+                first_profile_description = p.assigned_profile.description
+            else:
+                # try to select different profile if it exists
+                for _ in range(10000):
+                    second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
+                    if second_profile.description != first_profile_description:
+                        break
+                p.assigned_profile = second_profile
 
         while True:
             conv_id = random.getrandbits(31)
@@ -367,7 +395,7 @@ class DialogManager(AbstractDialogHandler):
 
         for p in conversation.participants:
             target_gateway = self._gateway_for_peer(p)
-            await target_gateway.start_conversation(conv_id, p.peer, p.assigned_profile)
+            await target_gateway.start_conversation(conv_id, p.peer, p.assigned_profile, p.peer_conversation_guid)
 
         self._reset_inactivity_timer(conv_id)
 
@@ -405,8 +433,14 @@ class DialogManager(AbstractDialogHandler):
 
         to_await = []
         for i, p in enumerate(conversation.participants):
-            random_profile = await run_sync_in_executor(lambda: db_profiles[random.randrange(db_profiles_count)])
-            true_profile = conversation.participants[1 - i].assigned_profile
+            true_profile: PersonProfile = conversation.participants[1 - i].assigned_profile
+
+            # try to select different profile if it exists
+            for _ in range(10000):
+                random_profile: PersonProfile = \
+                    await run_sync_in_executor(lambda: db_profiles[random.randrange(db_profiles_count)])
+                if true_profile.description != random_profile.description:
+                    break
 
             profiles = [true_profile, random_profile]
             random.shuffle(profiles)

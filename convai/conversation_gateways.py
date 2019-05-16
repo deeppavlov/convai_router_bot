@@ -140,13 +140,15 @@ class AbstractGateway(ABC):
         self._dialog_handler = NoopDialogHandler()
 
     @abstractmethod
-    async def start_conversation(self, conversation_id: int, own_peer: Union[User, Bot], profile: PersonProfile):
+    async def start_conversation(self, conversation_id: int, own_peer: Union[User, Bot], profile: PersonProfile,
+                                 peer_conversation_guid: str):
         """
         Handles the start of the conversation
 
         :param conversation_id: unique id of the conversation
         :param own_peer: User or Bot participating in a talk
         :param profile: a profile to "role-play" during this conversation
+        :param peer_conversation_guid: unique key which identifies User-Conversation pair
         """
         pass
 
@@ -227,9 +229,11 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         opponent_profile_correct: PersonProfile
         sentences_selected: int
         shuffled_sentences: List[Tuple[str, str]]
+        peer_conversation_guid: str
 
-        def __init__(self, conv_id):
+        def __init__(self, conv_id, peer_conversation_guid):
             self.conv_id = conv_id
+            self.peer_conversation_guid = peer_conversation_guid
             self.message_ids_map = {}
             self.opponent_profile_options = None
             self.opponent_profile_correct = None
@@ -250,7 +254,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     guess_profile_sentence_by_sentence: bool
 
     def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool, reveal_dialog_id: bool,
-                 messages: MessagesWrapper):
+                 evaluation_options: dict, messages: MessagesWrapper, keyboards: dict):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
@@ -259,8 +263,10 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.guess_profile_sentence_by_sentence = guess_profile_sentence_by_sentence
         self.allow_set_bot = allow_set_bot
         self.reveal_dialog_id = reveal_dialog_id
+        self.evaluation_options = evaluation_options
 
         self.messages = messages
+        self.keyboards = keyboards
 
     def add_messengers(self, *messengers: AbstractMessenger):
         self._messengers.update({m.platform: m for m in messengers if isinstance(m, AbstractMessenger)})
@@ -300,7 +306,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         messenger = self._messenger_for_user(user)
         welcome_txt = self.messages('start')
 
-        await messenger.send_message_to_user(user, welcome_txt, False, keyboard_buttons=['/begin', '/help'])
+        await messenger.send_message_to_user(user, welcome_txt, False, keyboard_buttons=self.keyboards['idle'])
 
     async def on_complain(self, user: User):
         self.log.info(f'user complained')
@@ -322,7 +328,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                              info_txt if result else fail_msg,
                                              False)
 
-    async def on_set_bot(self, user: User):
+    async def on_enter_set_bot(self, user: User):
         self.log.info(f'user requested for setting bot for conversation')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
@@ -339,45 +345,87 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         else:
             set_bot_txt = self.messages('bot_setting_not_allowed')
 
-        await messenger.send_message_to_user(user, set_bot_txt, False)
+        await messenger.send_message_to_user(user, set_bot_txt, False, keyboard_buttons=self.keyboards['set_bot'])
+
+    async def on_set_bot(self, user: User, bot_token: str):
+        self.log.info(f'user entered bot token')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+
+        if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
+            bot_token = bot_token.strip()
+            bot = Bot.objects.with_id(bot_token)
+
+            if bot:
+                user.update(assigned_test_bot=bot)
+                set_bot_txt = self.messages('bot_setting_bot_was_set', bot.bot_name)
+                keyboard_buttons = self.keyboards['idle']
+                self._user_states[user] = self.UserState.IDLE
+            else:
+                set_bot_txt = self.messages('bot_setting_bot_was_not_found', bot_token)
+                keyboard_buttons = self.keyboards['set_bot']
+
+            await messenger.send_message_to_user(user, set_bot_txt, False, keyboard_buttons=keyboard_buttons)
+        else:
+            await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
+
+        return True
+
+    async def on_list_bot(self, user: User):
+        self.log.info(f'user requested for listing bots available for setting')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+
+        if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
+            bots = Bot.objects(banned=False)
+            bot_names = [bot.bot_name for bot in bots]
+            bot_tokens = [bot.token for bot in bots]
+            await messenger.list_bots(user, bot_names, bot_tokens)
+        else:
+            await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
+
+        return
+
+    async def on_unset_bot(self, user: User):
+        self.log.info(f'user requested for unsetting bot for conversation')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+
+        if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
+            user.update(assigned_test_bot=None)
+            await messenger.send_message_to_user(user,
+                                                 self.messages('bot_setting_bot_was_unset'),
+                                                 False,
+                                                 keyboard_buttons=self.keyboards['idle'])
+            self._user_states[user] = self.UserState.IDLE
+        else:
+            await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
+
+        return
+
+    async def on_cancel_set_bot(self, user: User):
+        self.log.info(f'user requested for bot setting mode exit')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+
+        if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
+            await messenger.send_message_to_user(user,
+                                                 self.messages('bot_setting_canceled'),
+                                                 False,
+                                                 keyboard_buttons=self.keyboards['idle'])
+            self._user_states[user] = self.UserState.IDLE
+        else:
+            await messenger.send_message_to_user(user, self.messages('bot_setting_not_in_set_bot'), False)
+
+        return
 
     async def on_message_received(self, sender: User, text: str, time: datetime, msg_id: str = None):
         self.log.info(f'message received')
         user = await self._update_user_record_in_db(sender)
-        messenger = self._messenger_for_user(user)
 
-        # Bot setting mode commands handling
+        # Bot setting mode: bot token handling
         if await self._validate_user_state(user, self.UserState.WAITING_FOR_BOT_TOKEN):
-            user_state = self.UserState.WAITING_FOR_BOT_TOKEN
-            bot_token = text.strip()
-
-            if bot_token == '/unset':
-                user.update(assigned_test_bot=None)
-                set_bot_txt = self.messages('bot_setting_bot_was_unset')
-                user_state = self.UserState.IDLE
-            elif bot_token == '/list':
-                set_bot_txt = ''
-                bots = Bot.objects(banned=False)
-
-                for bot in bots:
-                    set_bot_txt = self.messages('bot_setting_list_bots', set_bot_txt, bot.bot_name, bot.token)
-
-                set_bot_txt.strip('\n')
-            elif bot_token == '/cancel':
-                set_bot_txt = self.messages('bot_setting_canceled')
-                user_state = self.UserState.IDLE
-            else:
-                bot = Bot.objects.with_id(bot_token)
-
-                if bot:
-                    user.update(assigned_test_bot=bot)
-                    set_bot_txt = self.messages('bot_setting_bot_was_set', bot_token)
-                    user_state = self.UserState.IDLE
-                else:
-                    set_bot_txt = self.messages('bot_setting_bot_was_not_found', bot_token)
-
-            await messenger.send_message_to_user(user, set_bot_txt, False)
-            self._user_states[user] = user_state
+            await self.on_set_bot(user, text)
             return
 
         if not await self._validate_user_state(user,
@@ -415,7 +463,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv = self._conversations[user]
         await self.dialog_handler.trigger_dialog_end(conv.conv_id, user)
 
-    async def on_evaluate_dialog(self, evaluator: User, score: int) -> bool:
+    async def on_evaluate_dialog(self, evaluator: User, score: Optional[int]) -> bool:
         self.log.info(f'dialog evaluated')
         user = await self._update_user_record_in_db(evaluator)
         messenger = self._messenger_for_user(user)
@@ -427,13 +475,17 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv = self._conversations[user]
         await self.dialog_handler.evaluate_dialog(conv.conv_id, user, score)
 
-        if self.guess_profile_sentence_by_sentence:
-            if not conv.shuffled_sentences:
-                await self._prepare_profile_sentences(user)
-                await self._request_next_profile_sentence_guess(user)
-        else:
-            msg = self.messages('profile_selection_invitation')
-            await messenger.request_profile_selection(user, msg, [x.description for x in conv.opponent_profile_options])
+        if self.evaluation_options['guess_profile']:
+            if self.guess_profile_sentence_by_sentence:
+                if not conv.shuffled_sentences:
+                    await self._prepare_profile_sentences(user)
+                    await self._request_next_profile_sentence_guess(user)
+            else:
+                msg = self.messages('profile_selection_invitation')
+                await messenger.request_profile_selection(user,
+                                                          msg,
+                                                          [x.description for x in conv.opponent_profile_options])
+
         return True
 
     async def on_other_peer_profile_selected(self, evaluator: User, profile_idx: int,
@@ -460,22 +512,34 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                                                 profile_idx)
 
         if self._user_states[user] == self.UserState.WAITING_FOR_PARTNER_EVALUATION and notify_user:
-            await messenger.send_message_to_user(user,
-                                                 self.messages('evaluation_saved'),
-                                                 False)
+            if self.reveal_dialog_id:
+                peer_conversation_guid = self._conversations[user].peer_conversation_guid
+                await messenger.send_message_to_user(user,
+                                                     self.messages('evaluation_saved_show_id', peer_conversation_guid),
+                                                     False)
+            else:
+                await messenger.send_message_to_user(user, self.messages('evaluation_saved'), False)
+
         return True
 
-    async def start_conversation(self, conversation_id: int, own_peer: User, profile: PersonProfile):
+    async def start_conversation(self, conversation_id: int, own_peer: User, profile: PersonProfile,
+                                 peer_conversation_guid: str):
+
         self.log.info('conversation start')
         user = await self._update_user_record_in_db(own_peer)
         messenger = self._messenger_for_user(user)
 
-        self._conversations[user] = self.ConversationRecord(conversation_id)
+        self._conversations[user] = self.ConversationRecord(conversation_id, peer_conversation_guid)
         self._user_states[user] = self.UserState.IN_DIALOG
 
-        await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
-        await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
-        await messenger.send_message_to_user(user, profile.description, False, keyboard_buttons=['/end', '/complain'])
+        if self.evaluation_options['guess_profile']:
+            await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
+            await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
+            await messenger.send_message_to_user(user, profile.description, False,
+                                                 keyboard_buttons=self.keyboards['in_dialog'])
+        else:
+            await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
+                                                 keyboard_buttons=self.keyboards['in_dialog'])
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
@@ -497,7 +561,11 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         msg = self.messages('evaluation_start')
 
         self._user_states[user] = self.UserState.EVALUATING
-        await messenger.request_dialog_evaluation(user, msg, scores_range)
+
+        if self.evaluation_options['score_dialog']:
+            await messenger.request_dialog_evaluation(user, msg, scores_range)
+        else:
+            await self.on_evaluate_dialog(user, None)
 
     async def finish_conversation(self, conversation_id: int):
         self.log.info(f'dialog {conversation_id} finished. Sending thank you message and cleaning up')
@@ -509,11 +577,12 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             messenger = self._messenger_for_user(user)
 
             if self.reveal_dialog_id:
-                msg = self.messages('finish_conversation_show_id', hex(conversation_id))
+                peer_conversation_guid = self._conversations[user].peer_conversation_guid
+                msg = self.messages('finish_conversation_show_id', peer_conversation_guid)
                 messages_to_send.append(messenger.send_message_to_user(user, msg, False))
 
             messages_to_send.append(messenger.send_message_to_user(user, thanks_text, False,
-                                                                   keyboard_buttons=['/begin', '/help']))
+                                                                   keyboard_buttons=self.keyboards['idle']))
 
             del self._conversations[user]
             del self._user_states[user]
@@ -538,7 +607,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             self.log.error(f'Unexpected reason: {reason}')
             text = self.messages('error')
 
-        await messenger.send_message_to_user(initiator, text, False, keyboard_buttons=['/begin', '/help'])
+        await messenger.send_message_to_user(initiator, text, False, keyboard_buttons=self.keyboards['idle'])
 
         if initiator in self._conversations:
             del self._conversations[initiator]
@@ -680,7 +749,9 @@ class BotsGateway(AbstractGateway):
         self._bot_queues = {}
         self._active_chats_trigrams = defaultdict(dict)
 
-    async def start_conversation(self, conversation_id: int, own_peer: Bot, profile: PersonProfile):
+    async def start_conversation(self, conversation_id: int, own_peer: Bot, profile: PersonProfile,
+                                 peer_conversation_guid: str):
+
         self.log.info(f'conversation {conversation_id} started with bot {own_peer.token}')
         bot = await self._get_bot(own_peer.token)
         q = self._get_queue(bot)
