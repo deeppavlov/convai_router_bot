@@ -209,10 +209,15 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
                 obj['profile_match'] = -1
 
             other_profile_options = [pr.sentences for pr in u.other_peer_profile_options]
+            ended_dialog = False
+            if 'triggered_dialog_end' in u:
+                if u['triggered_dialog_end']:
+                    ended_dialog = True
 
             obj['dialog_evaluation'] = u.dialog_evaluation_score
             obj['profile'] = u.assigned_profile.sentences
             obj['other_profile_options'] = other_profile_options
+            obj['ended_dialog'] = ended_dialog
             training_conv['users'].append(obj)
 
         for msg in conv.messages:
