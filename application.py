@@ -5,7 +5,6 @@ import os
 import re
 from functools import wraps
 from json import JSONDecodeError
-from pathlib import Path
 from typing import Dict, Any, Optional, Callable
 from urllib.parse import urlparse
 from pathlib import Path
@@ -54,7 +53,7 @@ async def init():
                 recursive_update(d1[k], v)
 
     config = {}
-    config_files = [os.path.join(os.path.dirname(__file__), 'config.yml'),
+    config_files = [os.path.join(os.path.dirname(__file__), 'settings/config.yml'),
                     '/etc/convai-router/config.yml']
 
     for filename in config_files:
@@ -85,13 +84,28 @@ async def init():
 
     mongoengine.connect(host=config['mongo_uri'])
 
-    messages_file = os.path.join(os.path.dirname(__file__), 'messages.tsv')
+    messages_file = os.path.join(os.path.dirname(__file__), 'settings/messages.tsv')
     messages = MessagesWrapper(Path(messages_file).resolve())
+
+    keyboards_file = os.path.join(os.path.dirname(__file__), 'settings/keyboards.yml')
+    with open(keyboards_file, 'r') as f:
+        keyboards = yaml.safe_load(f.read())
+
+    # configure keyboards
+    keyboards['in_dialog'] = keyboards['in_dialog']['default']
+    keyboards['set_bot'] = keyboards['set_bot']['default']
+
+    if config['dialog']['allow_set_bot']:
+        keyboards['idle'] = keyboards['idle']['setbot']
+    else:
+        keyboards['idle'] = keyboards['idle']['default']
 
     humans_gateway = HumansGateway(config['dialog']['guess_profile_sentence_by_sentence'],
                                    config['dialog']['allow_set_bot'],
                                    config['dialog']['reveal_dialog_id'],
-                                   messages)
+                                   config['evaluation_options'],
+                                   messages,
+                                   keyboards)
 
     bots_gateway = BotsGateway(config['dialog']['n_bad_messages_in_a_row_threshold'])
 
@@ -115,7 +129,8 @@ async def init():
                                    bots_gateway,
                                    humans_gateway,
                                    config['dialog']['evaluation_score_from'],
-                                   config['dialog']['evaluation_score_to'])
+                                   config['dialog']['evaluation_score_to'],
+                                   config['evaluation_options'])
 
     humans_gateway.dialog_handler = dialog_manager
     bots_gateway.dialog_handler = dialog_manager

@@ -173,92 +173,58 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             'dialog_id': str(hex(conv.conversation_id)),
             'dialog': [],
             'start_time': str(conv.start_time),
-            'end_time': str(conv.end_time)
+            'end_time': str(conv.end_time),
+            'users': []
         }
 
-        if isinstance(conv.participant1.peer, Bot):
-            peer_bot = conv.participant1
-            peer_user = conv.participant2
-        else:
-            peer_bot = conv.participant2
-            peer_user = conv.participant1
+        users = [conv.participant1, conv.participant2]
+        user_map = {}
+        for i in range(len(users)):
+            # other user's id
+            j = (i + 1) % 2
+            u = users[i]
+            obj = {}
+            try:
+                uid = str(u.peer.user_key.user_id)
+                uclass = 'Human'
+            except AttributeError:
+                uid = str(u.peer.id)
+                uclass = 'Bot'
+            obj['user_class'] = uclass
+            obj['user_id'] = uid
+            obj['user_external_id'] = u.peer_conversation_guid
+            user_map[u.peer] = (uid, uclass)
 
-        training_conv['bot_profile'] = list(peer_bot.assigned_profile.sentences)
-        training_conv['user_profile'] = list(peer_user.assigned_profile.sentences)
-
-        user_eval_score = peer_user.dialog_evaluation_score
-        bot_profile = peer_bot.assigned_profile
-        user_selected_profile = peer_user.other_peer_profile_selected
-        user_selected_profile_parts = peer_user.other_peer_profile_selected_parts
-
-        if user_selected_profile is not None:
-            profile_selected_score = int(user_selected_profile == bot_profile)
-        elif len(user_selected_profile_parts) > 0:
-            profile_set = set(list(bot_profile.sentences))
-            selected_set = set(list(user_selected_profile_parts))
-            matched_set = profile_set.intersection(selected_set)
-
-            profile_selected_score = len(matched_set) / len(profile_set)
-        else:
-            profile_selected_score = ''
-
-        training_conv['eval_score'] = user_eval_score
-        training_conv['profile_match'] = profile_selected_score
-
-        participants = {}
-        participants[conv.participant1.peer] = 'participant1'
-        participants[conv.participant2.peer] = 'participant2'
-
-        human_bot = {
-            Bot: 'Bot',
-            User: 'Human'
-        }
-
-        if conv.participant1.peer.__class__ == Bot:
-            training_conv['bot_id'] = conv.participant1.peer.id
-        elif conv.participant2.peer.__class__ == Bot:
-            training_conv['bot_id'] = conv.participant2.peer.id
-
-        if reveal_ids:
-            if conv.participant1.peer.__class__ == Bot:
-                peer: Bot = conv.participant1.peer
-                training_conv['participant1_id'] = {
-                    'class': 'Bot',
-                    'bot_token': peer.token
-                }
+            other_profile_true = users[j].assigned_profile.sentences
+            if u.other_peer_profile_selected is not None:
+                other_profile_hyp = u.other_peer_profile_selected.sentences
             else:
-                peer: User = conv.participant1.peer
-                training_conv['participant1_id'] = {
-                    'class': 'User',
-                    'platform': peer.user_key.platform,
-                    'user_id': peer.user_key.user_id
-                }
+                other_profile_hyp = None
 
-            if conv.participant2.peer.__class__ == Bot:
-                peer: Bot = conv.participant2.peer
-                training_conv['participant2_id'] = {
-                    'class': 'Bot',
-                    'bot_token': peer.token
-                }
+            if other_profile_hyp is None:
+                obj['profile_match'] = 0
+            elif other_profile_hyp == other_profile_true:
+                obj['profile_match'] = 1
             else:
-                peer: User = conv.participant2.peer
-                training_conv['participant2_id'] = {
-                    'class': 'User',
-                    'platform': peer.user_key.platform,
-                    'user_id': peer.user_key.user_id
-                }
+                obj['profile_match'] = -1
+
+            other_profile_options = [pr.sentences for pr in u.other_peer_profile_options]
+
+            obj['dialog_evaluation'] = u.dialog_evaluation_score
+            obj['profile'] = u.assigned_profile.sentences
+            obj['other_profile_options'] = other_profile_options
+            training_conv['users'].append(obj)
 
         for msg in conv.messages:
             msg: Message = msg
+            usr = user_map[msg.sender]
             training_message = {
-                'id': msg.msg_id,
-                'sender': participants[msg.sender],
+                #'id': msg.msg_id,
+                'sender': usr[0],
+                'sender_class': usr[1],
                 'text': msg.text,
                 'evaluation_score': msg.evaluation_score
             }
-
-            if reveal_sender:
-                training_message['sender_class'] = human_bot[msg.sender.__class__]
 
             training_conv['dialog'].append(training_message)
 

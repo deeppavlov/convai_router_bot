@@ -57,7 +57,23 @@ class AbstractHumansGateway(ABC):
         pass
 
     @abstractmethod
-    async def on_set_bot(self, user: User):
+    async def on_enter_set_bot(self, user: User):
+        pass
+
+    @abstractmethod
+    async def on_set_bot(self, user: User, bot_token: str):
+        pass
+
+    @abstractmethod
+    async def on_list_bot(self, user: User):
+        pass
+
+    @abstractmethod
+    async def on_unset_bot(self, user: User):
+        pass
+
+    @abstractmethod
+    async def on_cancel_set_bot(self, user: User):
         pass
 
 
@@ -94,6 +110,10 @@ class AbstractMessenger(ABC):
         self._validate_platform(user)
         return await self._send_message(user.user_key.user_id, msg_text, include_inline_evaluation_query, **kwargs)
 
+    async def list_bots(self, user: User, bot_names: list, bot_tokens: list):
+        self._validate_platform(user)
+        await self._list_bots(user.user_key.user_id, bot_names, bot_tokens)
+
     async def request_dialog_evaluation(self, user: User, msg_text: str, scores_range: range):
         self._validate_platform(user)
         await self._request_dialog_evaluation(user.user_key.user_id, msg_text, scores_range)
@@ -109,6 +129,10 @@ class AbstractMessenger(ABC):
 
     @abstractmethod
     async def _send_message(self, user_id: str, msg_text: str, include_inline_evaluation_query: bool, **kwargs) -> str:
+        pass
+
+    @abstractmethod
+    async def _list_bots(self, user_id: str, bot_names: list, bot_tokens: list):
         pass
 
     @abstractmethod
@@ -164,6 +188,12 @@ class TelegramMessenger(AbstractMessenger):
         self.log.info(f'message sent to {user_id}')
         return str(reply['message_id'])
 
+    async def _list_bots(self, user_id: str, bot_names: list, bot_tokens: list):
+        for bot_i, bot_name in enumerate(bot_names):
+            kb = self._get_set_bot_keyboard(bot_tokens[bot_i])
+            kwargs = {'reply_markup': kb}
+            await self._send_msg_with_timeouts_handling(user_id, bot_name, **kwargs)
+
     async def _request_dialog_evaluation(self, user_id: str, msg_text: str, scores_range: range):
         self._cached_scores_range = scores_range
         kb = self._get_evaluate_dialog_keyboard()
@@ -213,7 +243,10 @@ class TelegramMessenger(AbstractMessenger):
                             '/end': partial(self.gateway.on_end_dialog, internal_user),
                             '/start': partial(self.gateway.on_get_started, internal_user),
                             '/complain': partial(self.gateway.on_complain, internal_user),
-                            '/setbot': partial(self.gateway.on_set_bot, internal_user)}
+                            '/setbot': partial(self.gateway.on_enter_set_bot, internal_user),
+                            '/listbots': partial(self.gateway.on_list_bot, internal_user),
+                            '/unsetbot': partial(self.gateway.on_unset_bot, internal_user),
+                            '/cancelsetbot': partial(self.gateway.on_cancel_set_bot, internal_user)}
 
         valid_commands = [c for c in commands if c in command_handlers]
 
@@ -254,6 +287,9 @@ class TelegramMessenger(AbstractMessenger):
             if cmd == 'rate_msg':
                 return (partial(self.gateway.on_evaluate_message, internal_user, arg, parsed_msg.message.message_id),
                         partial(self._get_evaluate_msg_keyboard, arg))
+            if cmd == 'set_bot':
+                return (partial(self.gateway.on_set_bot, internal_user, args[0]),
+                        partial(self._get_set_bot_keyboard, args[0]))
 
         feedback = 'Evaluation saved!'
 
@@ -288,6 +324,12 @@ class TelegramMessenger(AbstractMessenger):
             texts[selected_button_idx] = '⭐' + texts[selected_button_idx]
 
         return [InlineKeyboardButton(text=text, callback_data=command(i, text)) for i, text in enumerate(texts)]
+
+    def _get_set_bot_keyboard(self, bot_token: str, selected_button_idx: Optional[int] = None):
+        buttons = self._get_flat_inline_keyboard_buttons(['set bot'],
+                                                         lambda i, txt: '/set_bot 0 ' + bot_token,
+                                                         selected_button_idx)
+        return InlineKeyboardMarkup(inline_keyboard=[buttons])
 
     def _get_evaluate_msg_keyboard(self, selected_button_idx: Optional[int] = None) -> InlineKeyboardMarkup:
         buttons = self._get_flat_inline_keyboard_buttons(['👎', '👍'],
@@ -407,6 +449,10 @@ class FacebookMessenger(AbstractMessenger):
 
         self.log.info(f'message sent to {user_id}')
         return await self._send_text_message(int(user_id), msg_text, qr)
+
+    # TODO: implement bot listing and selection for Facebook
+    async def _list_bots(self, user_id: str, bot_names: list, bot_tokens: list):
+        pass
 
     async def _request_dialog_evaluation(self, user_id: str, msg_text: str, scores_range: range):
         buttons = [self.QuickReplyOption(title=str(x), payload='/rate_dialog ' + str(x)) for x in scores_range]

@@ -1,0 +1,17 @@
+idle:
+  default:
+    - '/begin'
+    - '/help'
+  setbot:
+    - '/begin'
+    - '/setbot'
+    - '/help'
+in_dialog:
+  default:
+    - '/end'
+    - '/complain'
+set_bot:
+  default:
+    - '/unsetbot'
+    - '/listbots'
+    - '/cancelsetbot'
