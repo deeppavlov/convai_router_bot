@@ -12,7 +12,7 @@ from apscheduler.job import Job
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.base import BaseScheduler
-from mongoengine import ValidationError
+from mongoengine import ValidationError, FieldDoesNotExist
 
 from convai import run_sync_in_executor
 from convai.conversation_gateways import AbstractGateway, AbstractDialogHandler, HumansGateway, BotsGateway
@@ -378,7 +378,12 @@ class DialogManager(AbstractDialogHandler):
             if first_profile_description is None:
                 p.assigned_profile = profiles[random.randrange(profiles_count)]
                 first_profile_description = p.assigned_profile.description
-                linked_person_profile_uuid = p.assigned_profile.link_uuid
+
+                try:
+                    linked_person_profile_uuid = p.assigned_profile.link_uuid
+                except FieldDoesNotExist:
+                    pass
+
             else:
                 # try to select different profile if it exists
                 for _ in range(10000):
