@@ -389,7 +389,7 @@ class DialogManager(AbstractDialogHandler):
                 for _ in range(10000):
                     if linked_person_profile_uuid:
                         linked_profiles = PersonProfile.objects(link_uuid=linked_person_profile_uuid)
-                        second_profile: PersonProfile = linked_profiles[random.randrange(linked_profiles.count)]
+                        second_profile: PersonProfile = linked_profiles[random.randrange(linked_profiles.count())]
                     else:
                         second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
 
