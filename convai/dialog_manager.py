@@ -379,15 +379,18 @@ class DialogManager(AbstractDialogHandler):
                 p.assigned_profile = profiles[random.randrange(profiles_count)]
                 first_profile_description = p.assigned_profile.description
                 linked_person_profile_uuid = p.assigned_profile.link_uuid
-            if linked_person_profile_uuid:
-                second_profile = PersonProfile.objects(link_uuid=linked_person_profile_uuid)
-                p.assigned_profile = second_profile
             else:
                 # try to select different profile if it exists
                 for _ in range(10000):
-                    second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
+                    if linked_person_profile_uuid:
+                        linked_profiles = PersonProfile.objects(link_uuid=linked_person_profile_uuid)
+                        second_profile: PersonProfile = linked_profiles[random.randrange(profiles_count)]
+                    else:
+                        second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
+
                     if second_profile.description != first_profile_description:
                         break
+
                 p.assigned_profile = second_profile
 
         while True:
