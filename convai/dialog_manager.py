@@ -372,11 +372,16 @@ class DialogManager(AbstractDialogHandler):
         profiles_count = await run_sync_in_executor(profiles.count)
 
         first_profile_description = None
+        linked_person_profile_uuid = None
 
         for p in conversation.participants:
             if first_profile_description is None:
                 p.assigned_profile = profiles[random.randrange(profiles_count)]
                 first_profile_description = p.assigned_profile.description
+                linked_person_profile_uuid = p.assigned_profile.link_uuid
+            if linked_person_profile_uuid:
+                second_profile = PersonProfile.objects(link_uuid=linked_person_profile_uuid)
+                p.assigned_profile = second_profile
             else:
                 # try to select different profile if it exists
                 for _ in range(10000):
