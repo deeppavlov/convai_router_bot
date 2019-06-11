@@ -190,7 +190,7 @@ class DialogManager(AbstractDialogHandler):
 
         self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.SCORE_GIVEN
 
-        if not self.evaluation_options['guess_profile']:
+        if not self.evaluation_options['assign_profile'] or not self.evaluation_options['guess_profile']:
             self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.PROFILE_SELECTED
 
         await self._handle_evaluation_state(conversation_id)
