@@ -485,6 +485,15 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                 await messenger.request_profile_selection(user,
                                                           msg,
                                                           [x.description for x in conv.opponent_profile_options])
+        else:
+            if self.reveal_dialog_id:
+                peer_conversation_guid = self._conversations[user].peer_conversation_guid
+                await messenger.send_message_to_user(user,
+                                                     self.messages('evaluation_saved_show_id',
+                                                                   peer_conversation_guid),
+                                                     False)
+            else:
+                await messenger.send_message_to_user(user, self.messages('evaluation_saved'), False)
 
         return True
 
