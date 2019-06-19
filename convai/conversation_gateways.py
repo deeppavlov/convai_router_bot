@@ -475,7 +475,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv = self._conversations[user]
         await self.dialog_handler.evaluate_dialog(conv.conv_id, user, score)
 
-        if self.evaluation_options['guess_profile']:
+        if self.evaluation_options['assign_profile'] and self.evaluation_options['guess_profile']:
             if self.guess_profile_sentence_by_sentence:
                 if not conv.shuffled_sentences:
                     await self._prepare_profile_sentences(user)
@@ -485,6 +485,15 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                 await messenger.request_profile_selection(user,
                                                           msg,
                                                           [x.description for x in conv.opponent_profile_options])
+        else:
+            if self.reveal_dialog_id:
+                peer_conversation_guid = self._conversations[user].peer_conversation_guid
+                await messenger.send_message_to_user(user,
+                                                     self.messages('evaluation_saved_show_id',
+                                                                   peer_conversation_guid),
+                                                     False)
+            else:
+                await messenger.send_message_to_user(user, self.messages('evaluation_saved'), False)
 
         return True
 
@@ -532,7 +541,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self._conversations[user] = self.ConversationRecord(conversation_id, peer_conversation_guid)
         self._user_states[user] = self.UserState.IN_DIALOG
 
-        if self.evaluation_options['guess_profile']:
+        if self.evaluation_options['assign_profile']:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
             await messenger.send_message_to_user(user, profile.description, False,

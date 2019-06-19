@@ -145,8 +145,21 @@ def set_default_bot(platform, user_id, token):
 
 
 def import_profiles(stream: Union[TextIO, StringIO]):
-    profiles = map(lambda x: PersonProfile(sentences=x.splitlines()), stream.read().split('\n\n'))
-    return PersonProfile.objects.insert(list(profiles))
+    raw_profiles = stream.read().split('\n\n')
+    profiles = []
+
+    for raw_profile in raw_profiles:
+        linked_profiles = raw_profile.split('[:linked:]')
+
+        if len(linked_profiles) == 1:
+            person_profile = PersonProfile(sentences=linked_profiles[0].strip('\n').splitlines())
+            profiles.append(person_profile)
+        elif len(linked_profiles) > 1:
+            link_uuid = str(uuid4())
+            profiles.extend([PersonProfile(sentences=profile.strip('\n').splitlines(),
+                                           link_uuid=link_uuid) for profile in linked_profiles])
+
+    return PersonProfile.objects.insert(profiles)
 
 
 def export_training_conversations(date_begin=None, date_end=None, reveal_sender=False, reveal_ids=False):

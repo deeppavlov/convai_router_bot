@@ -12,7 +12,7 @@ from apscheduler.job import Job
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.base import BaseScheduler
-from mongoengine import ValidationError
+from mongoengine import ValidationError, FieldDoesNotExist
 
 from convai import run_sync_in_executor
 from convai.conversation_gateways import AbstractGateway, AbstractDialogHandler, HumansGateway, BotsGateway
@@ -190,7 +190,7 @@ class DialogManager(AbstractDialogHandler):
 
         self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.SCORE_GIVEN
 
-        if not self.evaluation_options['guess_profile']:
+        if not self.evaluation_options['assign_profile'] or not self.evaluation_options['guess_profile']:
             self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.PROFILE_SELECTED
 
         await self._handle_evaluation_state(conversation_id)
@@ -372,17 +372,30 @@ class DialogManager(AbstractDialogHandler):
         profiles_count = await run_sync_in_executor(profiles.count)
 
         first_profile_description = None
+        linked_person_profile_uuid = None
 
         for p in conversation.participants:
             if first_profile_description is None:
                 p.assigned_profile = profiles[random.randrange(profiles_count)]
                 first_profile_description = p.assigned_profile.description
+
+                try:
+                    linked_person_profile_uuid = p.assigned_profile.link_uuid
+                except FieldDoesNotExist:
+                    pass
+
             else:
                 # try to select different profile if it exists
                 for _ in range(10000):
-                    second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
+                    if linked_person_profile_uuid:
+                        linked_profiles = PersonProfile.objects(link_uuid=linked_person_profile_uuid)
+                        second_profile: PersonProfile = linked_profiles[random.randrange(linked_profiles.count())]
+                    else:
+                        second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
+
                     if second_profile.description != first_profile_description:
                         break
+
                 p.assigned_profile = second_profile
 
         while True:

@@ -23,6 +23,7 @@ dialog:
 
 evaluation_options:
   score_dialog: true
+  assign_profile: true
   guess_profile: true
 
 logging:
