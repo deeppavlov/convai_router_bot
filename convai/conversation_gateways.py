@@ -56,6 +56,16 @@ class AbstractDialogHandler(ABC):
         pass
 
     @abstractmethod
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
+        """
+        Should be called when a switch to next conversation topic is requested for one of the peers
+
+        :param conversation_id: integer id of the dialog
+        :param peer: a peer willing to switch conversation topic
+        """
+        pass
+
+    @abstractmethod
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         """
         Should be called when one of the parties wants to complete the dialog either intentionally (by sending /end
@@ -203,6 +213,9 @@ class NoopDialogHandler(AbstractDialogHandler):
     async def on_message_evaluated(self, conversation_id: int, evaluator: Union[Bot, User], score: int,
                                    msg_id: int = None):
         pass
+
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
+        return False
 
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         pass

@@ -148,6 +148,25 @@ class DialogManager(AbstractDialogHandler):
 
         msg.evaluation_score = score
 
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
+        log.info('switching to the next conversation topic')
+        self._validate_conversation_and_peer(conversation_id, peer)
+        conversation: Conversation = self._active_dialogs[conversation_id]
+
+        if conversation.next_topic():
+            index = conversation.active_topic_index
+            msg = Message(msg_id=len(conversation.messages),
+                          text=f'Switched to topic with index {index}',
+                          sender=peer,
+                          time=datetime.now(),
+                          system=True)
+
+            conversation.messages.append(msg)
+
+            for conv_peer in conversation.participants:
+                await self._gateway_for_peer(conv_peer.peer).on_topic_switched(conv_peer.peer,
+                                                                               conv_peer.assigned_profile.topics[index])
+
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         log.info(f'end of conversation {conversation_id} triggered')
         self._validate_conversation_and_peer(conversation_id, peer)
