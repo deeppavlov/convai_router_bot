@@ -560,6 +560,9 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
                                                  keyboard_buttons=self.keyboards['in_dialog'])
 
+        if self.dialog_options['show_topics'] and profile.topics:
+            await self.on_topic_switched(user, profile.topics[0])
+
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
         user = await self._update_user_record_in_db(receiving_peer)
