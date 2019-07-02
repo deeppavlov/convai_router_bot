@@ -17,6 +17,7 @@ class Conversation(Document):
     messages: List[Message] = EmbeddedDocumentListField(Message, required=True)
     start_time: datetime = DateTimeField(required=True)
     end_time: datetime = DateTimeField(required=True)
+    active_topic_index: int = IntField(required=True, default=0)
 
     @property
     def participants(self) -> List[ConversationPeer]:
@@ -30,3 +31,13 @@ class Conversation(Document):
 
         self.start_time = min(map(lambda x: x.time, self.messages))
         self.end_time = max(map(lambda x: x.time, self.messages))
+
+    def next_topic(self) -> bool:
+        p1_topics_n = len(self.participant1.assigned_profile.topics)
+        p2_topics_n = len(self.participant2.assigned_profile.topics)
+
+        if self.active_topic_index + 1 < p1_topics_n and self.active_topic_index + 1 < p2_topics_n:
+            self.active_topic_index += 1
+            return True
+        else:
+            return False
