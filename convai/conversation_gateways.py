@@ -343,7 +343,25 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                              False)
 
     async def on_topic_switch(self, user: User):
-        pass
+        self.log.info(f'user informed about conversation topic switch')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+
+        if not await self._validate_user_state(user,
+                                               self.UserState.IN_DIALOG,
+                                               self.messages('not_in_conversation_unexpected_message')):
+            return
+
+        else:
+            conv = self._conversations[user]
+
+        if not self.dialog_options['show_topics']:
+            await messenger.send_message_to_user(user, self.messages('switch_topic_not_allowed'), False)
+            return
+
+        if not await self.dialog_handler.switch_to_next_topic(conv.conv_id, user):
+            await messenger.send_message_to_user(user, self.messages('switch_topic_not_available'), False)
+            return
 
     async def on_topic_switched(self, user: User, topic_text: str):
         self.log.info(f'user informed about conversation topic switch')
