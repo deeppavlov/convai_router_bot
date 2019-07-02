@@ -167,6 +167,11 @@ class DialogManager(AbstractDialogHandler):
                 await self._gateway_for_peer(conv_peer.peer).on_topic_switched(conv_peer.peer,
                                                                                conv_peer.assigned_profile.topics[index])
 
+            return True
+
+        else:
+            return False
+
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         log.info(f'end of conversation {conversation_id} triggered')
         self._validate_conversation_and_peer(conversation_id, peer)
