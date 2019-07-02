@@ -259,10 +259,12 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self._conversations = {}
         self._user_states = defaultdict(lambda: self.UserState.IDLE)
 
+        self.dialog_options = dialog_options
+        self.evaluation_options = evaluation_options
+
         self.guess_profile_sentence_by_sentence = evaluation_options['guess_profile_sentence_by_sentence']
         self.allow_set_bot = dialog_options['allow_set_bot']
         self.reveal_dialog_id = dialog_options['reveal_dialog_id']
-        self.evaluation_options = evaluation_options
 
         self.messages = messages
         self.keyboards = keyboards
@@ -326,6 +328,9 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         await messenger.send_message_to_user(user,
                                              info_txt if result else fail_msg,
                                              False)
+
+    async def on_topic_switch(self, user: User):
+        pass
 
     async def on_enter_set_bot(self, user: User):
         self.log.info(f'user requested for setting bot for conversation')
@@ -474,7 +479,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv = self._conversations[user]
         await self.dialog_handler.evaluate_dialog(conv.conv_id, user, score)
 
-        if self.evaluation_options['assign_profile'] and self.evaluation_options['guess_profile']:
+        if self.dialog_options['assign_profile'] and self.evaluation_options['guess_profile']:
             if self.guess_profile_sentence_by_sentence:
                 if not conv.shuffled_sentences:
                     await self._prepare_profile_sentences(user)
@@ -540,7 +545,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self._conversations[user] = self.ConversationRecord(conversation_id, peer_conversation_guid)
         self._user_states[user] = self.UserState.IN_DIALOG
 
-        if self.evaluation_options['assign_profile']:
+        if self.dialog_options['assign_profile']:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
             await messenger.send_message_to_user(user, profile.description, False,

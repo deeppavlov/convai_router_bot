@@ -55,16 +55,19 @@ class DialogManager(AbstractDialogHandler):
         :param scheduler: custom non-blocking scheduler object which conforms to the interface of
             apscheduler.schedulers.base.BaseScheduler. Default value is BackgroundScheduler().
         """
-        self.dialog_eval_max = evaluation_options['evaluation_score_from']
-        self.dialog_eval_min = evaluation_options['evaluation_score_to']
-        self.scheduler = scheduler if scheduler is not None else AsyncIOScheduler()
         self.humans_gateway = humans_gateway
         self.bots_gateway = bots_gateway
+        self.scheduler = scheduler if scheduler is not None else AsyncIOScheduler()
+
+        self.dialog_options = dialog_options
+        self.evaluation_options = evaluation_options
+
+        self.dialog_eval_min = evaluation_options['evaluation_score_from']
+        self.dialog_eval_max = evaluation_options['evaluation_score_to']
         self.length_threshold = dialog_options['max_length']
         self.inactivity_timeout = dialog_options['inactivity_timeout']
         self.human_bot_ratio = dialog_options['human_bot_ratio']
         self.max_time_in_lobby = dialog_options['max_time_in_lobby']
-        self.evaluation_options = evaluation_options
 
         self._lobby = {}
         self._active_dialogs = {}
@@ -178,7 +181,7 @@ class DialogManager(AbstractDialogHandler):
 
         self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.SCORE_GIVEN
 
-        if not self.evaluation_options['assign_profile'] or not self.evaluation_options['guess_profile']:
+        if not self.dialog_options['assign_profile'] or not self.evaluation_options['guess_profile']:
             self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.PROFILE_SELECTED
 
         await self._handle_evaluation_state(conversation_id)
