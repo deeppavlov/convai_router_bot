@@ -80,6 +80,10 @@ class AbstractHumansGateway(ABC):
     async def on_topic_switch(self, user: User):
         pass
 
+    @abstractmethod
+    async def on_topic_switched(self, user: User, topic_text: str):
+        pass
+
 
 class AbstractMessenger(ABC):
     gateway: AbstractHumansGateway
