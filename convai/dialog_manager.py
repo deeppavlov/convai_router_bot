@@ -42,40 +42,28 @@ class DialogManager(AbstractDialogHandler):
     dialog_eval_min: int
     dialog_eval_max: int
 
-    def __init__(self, max_time_in_lobby: Number, human_bot_ratio: float, inactivity_timeout: Number,
-                 length_threshold: int, bots_gateway: BotsGateway, humans_gateway: HumansGateway,
-                 dialog_eval_min: int, dialog_eval_max: int, evaluation_options: dict,
-                 scheduler: BaseScheduler = None):
+    def __init__(self, bots_gateway: BotsGateway, humans_gateway: HumansGateway, dialog_options: dict,
+                 evaluation_options: dict, scheduler: BaseScheduler = None):
         """
         Dialog manager is responsible for handling conversations. Including matching with human and bot peers, dialog 
         setup, dialog evaluation, etc.
 
-        :param max_time_in_lobby: Max time (in seconds) a human can wait for another human peer. A bot is used if no
-            humans are found
-        :param human_bot_ratio: Float in [0, 1] range showing percentage of humans picked for conversation.
-            E.g. 0.2 means that for 20% of conversations there will be an attempt to match with human peer. The rest 80%
-            will be matched with bots right away
-        :param inactivity_timeout: Max time (in seconds) a dialog is considered active. I.e. if both peers perform no
-            actions for 'inactivity_timeout' units of time, then the dialog ends
-        :param length_threshold: Max number of messages allowed in a single dialog. After reaching this number of
-            messages dialog ends automatically
         :param bots_gateway: An object capable of handling system-to-bot communication
         :param humans_gateway: An object capable of handling system-to-human communication
-        :param dialog_eval_min: min score for dialog evaluation
-        :param dialog_eval_max: max score for dialog evaluation
+        :param dialog_options: dialog options
         :param evaluation_options: dialog evaluation options
         :param scheduler: custom non-blocking scheduler object which conforms to the interface of
             apscheduler.schedulers.base.BaseScheduler. Default value is BackgroundScheduler().
         """
-        self.dialog_eval_max = dialog_eval_max
-        self.dialog_eval_min = dialog_eval_min
+        self.dialog_eval_max = evaluation_options['evaluation_score_from']
+        self.dialog_eval_min = evaluation_options['evaluation_score_to']
         self.scheduler = scheduler if scheduler is not None else AsyncIOScheduler()
         self.humans_gateway = humans_gateway
         self.bots_gateway = bots_gateway
-        self.length_threshold = length_threshold
-        self.inactivity_timeout = inactivity_timeout
-        self.human_bot_ratio = human_bot_ratio
-        self.max_time_in_lobby = max_time_in_lobby
+        self.length_threshold = dialog_options['max_length']
+        self.inactivity_timeout = dialog_options['inactivity_timeout']
+        self.human_bot_ratio = dialog_options['human_bot_ratio']
+        self.max_time_in_lobby = dialog_options['max_time_in_lobby']
         self.evaluation_options = evaluation_options
 
         self._lobby = {}

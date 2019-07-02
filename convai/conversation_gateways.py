@@ -253,16 +253,15 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     _user_states: DefaultDict[User, UserState]
     guess_profile_sentence_by_sentence: bool
 
-    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool, reveal_dialog_id: bool,
-                 evaluation_options: dict, messages: MessagesWrapper, keyboards: dict):
+    def __init__(self, dialog_options: dict, evaluation_options: dict, messages: MessagesWrapper, keyboards: dict):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
         self._user_states = defaultdict(lambda: self.UserState.IDLE)
 
-        self.guess_profile_sentence_by_sentence = guess_profile_sentence_by_sentence
-        self.allow_set_bot = allow_set_bot
-        self.reveal_dialog_id = reveal_dialog_id
+        self.guess_profile_sentence_by_sentence = evaluation_options['guess_profile_sentence_by_sentence']
+        self.allow_set_bot = dialog_options['allow_set_bot']
+        self.reveal_dialog_id = dialog_options['reveal_dialog_id']
         self.evaluation_options = evaluation_options
 
         self.messages = messages
@@ -752,9 +751,9 @@ class BotsGateway(AbstractGateway):
     _n_trigrams_from_profile_threshold: int
     _bot_queues: Dict[str, asyncio.Queue]
 
-    def __init__(self, n_bad_messages_threshold: int):
+    def __init__(self, dialog_options: dict):
         super().__init__()
-        self._n_bad_messages_threshold = n_bad_messages_threshold
+        self._n_bad_messages_threshold = dialog_options['n_bad_messages_in_a_row_threshold']
         self._bot_queues = {}
         self._active_chats_trigrams = defaultdict(dict)
 
