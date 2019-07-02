@@ -12,3 +12,4 @@ class Message(EmbeddedDocument):
     sender = GenericReferenceField(choices=[User, Bot], required=True)
     time = DateTimeField(required=True)
     evaluation_score = IntField(max_value=1, min_value=0)
+    system = BooleanField(required=True, default=False)
