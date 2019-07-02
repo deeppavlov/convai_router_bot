@@ -92,13 +92,17 @@ async def init():
         keyboards = yaml.safe_load(f.read())
 
     # configure keyboards
-    keyboards['in_dialog'] = keyboards['in_dialog']['default']
-    keyboards['set_bot'] = keyboards['set_bot']['default']
-
     if config['dialog_options']['allow_set_bot']:
         keyboards['idle'] = keyboards['idle']['setbot']
     else:
         keyboards['idle'] = keyboards['idle']['default']
+
+    if config['dialog_options']['show_topics']:
+        keyboards['in_dialog'] = keyboards['in_dialog']['show_topics']
+    else:
+        keyboards['in_dialog'] = keyboards['in_dialog']['default']
+
+    keyboards['set_bot'] = keyboards['set_bot']['default']
 
     humans_gateway = HumansGateway(config['dialog_options'],
                                    config['evaluation_options'],

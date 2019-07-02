@@ -16,6 +16,7 @@ dialog_options:
   max_length: 1000
   n_bad_messages_in_a_row_threshold: 10
   assign_profile: true
+  show_topics: false
   allow_set_bot: false
   reveal_dialog_id: false
 
