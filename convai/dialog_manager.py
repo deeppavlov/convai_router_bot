@@ -12,7 +12,7 @@ from apscheduler.job import Job
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.base import BaseScheduler
-from mongoengine import ValidationError, FieldDoesNotExist
+from mongoengine import ValidationError, FieldDoesNotExist, QuerySet
 
 from convai import run_sync_in_executor
 from convai.conversation_gateways import AbstractGateway, AbstractDialogHandler, HumansGateway, BotsGateway
@@ -359,33 +359,21 @@ class DialogManager(AbstractDialogHandler):
         conversation = Conversation(participant1=ConversationPeer(peer=user, peer_conversation_guid=uuid4().__str__()),
                                     participant2=ConversationPeer(peer=peer, peer_conversation_guid=uuid4().__str__()))
 
-        profiles = await run_sync_in_executor(PersonProfile.objects)
-        profiles_count = await run_sync_in_executor(profiles.count)
+        profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects)
 
-        first_profile_description = None
-        linked_person_profile_uuid = None
+        first_profile = None
+        linked_profile_uuid = None
 
         for p in conversation.participants:
-            if first_profile_description is None:
-                p.assigned_profile = profiles[random.randrange(profiles_count)]
-                first_profile_description = p.assigned_profile.description
-
-                try:
-                    linked_person_profile_uuid = p.assigned_profile.link_uuid
-                except FieldDoesNotExist:
-                    pass
+            if first_profile is None:
+                p.assigned_profile = first_profile = random.choice(profiles)
+                linked_profile_uuid = first_profile.link_uuid
 
             else:
-                # try to select different profile if it exists
-                for _ in range(10000):
-                    if linked_person_profile_uuid:
-                        linked_profiles = PersonProfile.objects(link_uuid=linked_person_profile_uuid)
-                        second_profile: PersonProfile = linked_profiles[random.randrange(linked_profiles.count())]
-                    else:
-                        second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
-
-                    if second_profile.description != first_profile_description:
-                        break
+                # profiles assignment order:
+                # other profile from the same linked group || profile with unmatching sentences || same profile
+                second_profile = random.choice(profiles(id__ne=first_profile.id, link_uuid=linked_profile_uuid) or
+                                               (profiles(sentences__ne=first_profile.sentences) or [first_profile]))
 
                 p.assigned_profile = second_profile
 
@@ -438,13 +426,8 @@ class DialogManager(AbstractDialogHandler):
         to_await = []
         for i, p in enumerate(conversation.participants):
             true_profile: PersonProfile = conversation.participants[1 - i].assigned_profile
-
-            # try to select different profile if it exists
-            for _ in range(10000):
-                random_profile: PersonProfile = \
-                    await run_sync_in_executor(lambda: db_profiles[random.randrange(db_profiles_count)])
-                if true_profile.description != random_profile.description:
-                    break
+            random_profile: PersonProfile = random.choice(db_profiles(sentences__ne=true_profile.sentences) or
+                                                          [true_profile])
 
             profiles = [true_profile, random_profile]
             random.shuffle(profiles)
