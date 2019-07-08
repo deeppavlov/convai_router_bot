@@ -107,12 +107,7 @@ class DialogManager(AbstractDialogHandler):
         if conversation_id in self._evaluations:
             raise ValueError('Conversation is finished. Only evaluation is allowed')
 
-        msg = Message(msg_id=len(conversation.messages),
-                      text=text,
-                      sender=sender,
-                      time=time)
-
-        conversation.messages.append(msg)
+        msg = conversation.add_message(text=text, sender=sender, time=time)
 
         receiver = next((p.peer for p in conversation.participants if p.peer != sender), None)
         if receiver is None:
@@ -155,13 +150,7 @@ class DialogManager(AbstractDialogHandler):
 
         if conversation.next_topic():
             index = conversation.active_topic_index
-            msg = Message(msg_id=len(conversation.messages),
-                          text=f'Switched to topic with index {index}',
-                          sender=peer,
-                          time=datetime.now(),
-                          system=True)
-
-            conversation.messages.append(msg)
+            conversation.add_message(text=f'Switched to topic with index {index}', sender=peer, system=True)
 
             for conv_peer in conversation.participants:
                 await self._gateway_for_peer(conv_peer.peer).on_topic_switched(conv_peer.peer,

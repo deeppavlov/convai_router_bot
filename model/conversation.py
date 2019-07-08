@@ -1,10 +1,12 @@
 from datetime import datetime
-from typing import List
+from typing import List, Union, Optional
 
 from mongoengine import EmbeddedDocumentField, EmbeddedDocumentListField, DateTimeField, Document, ValidationError, \
     IntField
 
 from .conversation_peer import ConversationPeer
+from .user import User
+from .bot import Bot
 from .message import Message
 
 
@@ -31,6 +33,19 @@ class Conversation(Document):
 
         self.start_time = min(map(lambda x: x.time, self.messages))
         self.end_time = max(map(lambda x: x.time, self.messages))
+
+    def add_message(self, text: str, sender: Union[Bot, User], time: Optional[datetime] = None,
+                    system: Optional[bool] = False) -> Message:
+        time = time or datetime.utcnow()
+        message = Message(msg_id=len(self.messages),
+                          text=text,
+                          sender=sender,
+                          time=time,
+                          system=system)
+
+        self.messages.append(message)
+
+        return message
 
     def next_topic(self) -> bool:
         p1_topics_n = len(self.participant1.assigned_profile.topics)
