@@ -359,7 +359,17 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('switch_topic_not_allowed'), False)
             return
 
-        if not await self.dialog_handler.switch_to_next_topic(conv.conv_id, user):
+        messages_to_switch_topic_left = await self.dialog_handler.switch_to_next_topic(conv.conv_id, user)
+
+        if messages_to_switch_topic_left == 0:
+            return
+        elif messages_to_switch_topic_left > 0:
+            await messenger.send_message_to_user(user,
+                                                 self.messages('switch_topic_messages_left',
+                                                               messages_to_switch_topic_left),
+                                                 False)
+            return
+        elif messages_to_switch_topic_left < 0:
             await messenger.send_message_to_user(user, self.messages('switch_topic_not_available'), False)
             return
 

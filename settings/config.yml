@@ -17,6 +17,7 @@ dialog_options:
   n_bad_messages_in_a_row_threshold: 10
   assign_profile: true
   show_topics: false
+  n_messages_to_switch_topic: 5
   allow_set_bot: false
   reveal_dialog_id: false
 

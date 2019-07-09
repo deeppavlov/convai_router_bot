@@ -61,4 +61,5 @@ switch_topic_not_allowed	Conversation topic switching is not available.
 switch_topic_info	"Let's discuss this:
 
 {}"
+switch_topic_messages_left	{} more messages from you or your peer required to switch topic.
 switch_topic_not_available	Next conversation topic is not available.

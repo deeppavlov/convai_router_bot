@@ -33,14 +33,19 @@ class DialogManager(AbstractDialogHandler):
     _dialog_timeout_handlers: Dict[int, Job]
     _active_dialogs: Dict[int, Conversation]
     _lobby: Dict[User, Job]
+
     humans_gateway: HumansGateway
     bots_gateway: BotsGateway
-    inactivity_timeout: Number
-    max_time_in_lobby: Number
-    length_threshold: int
-    human_bot_ratio: float
+
+    dialog_options: dict
+    evaluation_options: dict
+
     dialog_eval_min: int
     dialog_eval_max: int
+    length_threshold: int
+    inactivity_timeout: Number
+    human_bot_ratio: float
+    max_time_in_lobby: Number
 
     def __init__(self, bots_gateway: BotsGateway, humans_gateway: HumansGateway, dialog_options: dict,
                  evaluation_options: dict, scheduler: BaseScheduler = None):
@@ -143,12 +148,14 @@ class DialogManager(AbstractDialogHandler):
 
         msg.evaluation_score = score
 
-    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> int:
         log.info('switching to the next conversation topic')
         self._validate_conversation_and_peer(conversation_id, peer)
         conversation: Conversation = self._active_dialogs[conversation_id]
 
-        if conversation.next_topic():
+        messages_to_switch_topic_left = conversation.next_topic()
+
+        if messages_to_switch_topic_left == 0:
             index = conversation.active_topic_index
             conversation.add_message(text=f'Switched to topic with index {index}', sender=peer, system=True)
 
@@ -156,10 +163,7 @@ class DialogManager(AbstractDialogHandler):
                 await self._gateway_for_peer(conv_peer.peer).on_topic_switched(conv_peer.peer,
                                                                                conv_peer.assigned_profile.topics[index])
 
-            return True
-
-        else:
-            return False
+        return messages_to_switch_topic_left
 
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         log.info(f'end of conversation {conversation_id} triggered')
@@ -396,6 +400,10 @@ class DialogManager(AbstractDialogHandler):
                     await run_sync_in_executor(lambda: Conversation.objects(conversation_id=conv_id).count()) == 0:
                 break
         conversation.conversation_id = conv_id
+
+        conversation.messages_to_switch_topic = self.dialog_options['n_messages_to_switch_topic']
+        conversation.reset_topic_switch_counter()
+
         self._active_dialogs[conv_id] = conversation
 
         for p in conversation.participants:
@@ -434,7 +442,6 @@ class DialogManager(AbstractDialogHandler):
         self._evaluations[conversation_id] = [self.EvaluationState.NONE] * 2
 
         db_profiles = await run_sync_in_executor(PersonProfile.objects)
-        db_profiles_count = await run_sync_in_executor(db_profiles.count)
 
         to_await = []
         for i, p in enumerate(conversation.participants):
