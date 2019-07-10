@@ -145,19 +145,17 @@ def set_default_bot(platform, user_id, token):
 
 
 def import_profiles(stream: Union[TextIO, StringIO]):
-    raw_profiles = stream.read().split('\n\n')
     profiles = []
+    linked_groups = [linked_profiles.split('[:linked:]') for linked_profiles in stream.read().split('\n\n')]
 
-    for raw_profile in raw_profiles:
-        linked_profiles = raw_profile.split('[:linked:]')
+    for linked_group in linked_groups:
+        link_uuid = str(uuid4())
 
-        if len(linked_profiles) == 1:
-            person_profile = PersonProfile(sentences=linked_profiles[0].strip('\n').splitlines())
-            profiles.append(person_profile)
-        elif len(linked_profiles) > 1:
-            link_uuid = str(uuid4())
-            profiles.extend([PersonProfile(sentences=profile.strip('\n').splitlines(),
-                                           link_uuid=link_uuid) for profile in linked_profiles])
+        for linked_profile in linked_group:
+            profile_contents = linked_profile.strip('\n').split('[:topic:]')
+            profiles.append(PersonProfile(sentences=profile_contents.pop(0).strip('\n').splitlines(),
+                                          link_uuid=link_uuid,
+                                          topics=profile_contents))
 
     return PersonProfile.objects.insert(profiles)
 

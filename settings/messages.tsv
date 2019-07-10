@@ -57,3 +57,9 @@ bot_setting_not_in_set_bot	You are not in bot setting mode now. Please run /setb
 bot_setting_bot_was_set	You successfully set bot: {}
 bot_setting_bot_was_not_found	No bot found with token: {}
 bot_setting_canceled	Bot setting was canceled.
+switch_topic_not_allowed	Conversation topic switching is not available.
+switch_topic_info	"Let's discuss this:
+
+{}"
+switch_topic_messages_left	{} more messages from you or your peer required to switch topic.
+switch_topic_not_available	Next conversation topic is not available.
