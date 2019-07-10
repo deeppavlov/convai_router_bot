@@ -90,7 +90,7 @@ class DialogManager(AbstractDialogHandler):
         if user in self._lobby or user in map(lambda p: p.peer, active_dialogs_peers):
             raise SimultaneousDialogsError("Starting multiple dialogs simultaneously is prohibited")
 
-        if random.random() >= self.human_bot_ratio:
+        if random.random() > self.human_bot_ratio:
             log.info(f'bot peer selected')
             await self._start_dialog_with_bot(user)
             return
