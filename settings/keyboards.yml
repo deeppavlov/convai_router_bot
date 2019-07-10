@@ -10,6 +10,10 @@ in_dialog:
   default:
     - '/end'
     - '/complain'
+  show_topics:
+    - '/end'
+    - '/nexttopic'
+    - '/complain'
 set_bot:
   default:
     - '/unsetbot'

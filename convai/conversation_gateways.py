@@ -56,6 +56,16 @@ class AbstractDialogHandler(ABC):
         pass
 
     @abstractmethod
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
+        """
+        Should be called when a switch to next conversation topic is requested for one of the peers
+
+        :param conversation_id: integer id of the dialog
+        :param peer: a peer willing to switch conversation topic
+        """
+        pass
+
+    @abstractmethod
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         """
         Should be called when one of the parties wants to complete the dialog either intentionally (by sending /end
@@ -204,6 +214,9 @@ class NoopDialogHandler(AbstractDialogHandler):
                                    msg_id: int = None):
         pass
 
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
+        return False
+
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         pass
 
@@ -253,17 +266,18 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     _user_states: DefaultDict[User, UserState]
     guess_profile_sentence_by_sentence: bool
 
-    def __init__(self, guess_profile_sentence_by_sentence: bool, allow_set_bot: bool, reveal_dialog_id: bool,
-                 evaluation_options: dict, messages: MessagesWrapper, keyboards: dict):
+    def __init__(self, dialog_options: dict, evaluation_options: dict, messages: MessagesWrapper, keyboards: dict):
         super().__init__()
         self._messengers = {}
         self._conversations = {}
         self._user_states = defaultdict(lambda: self.UserState.IDLE)
 
-        self.guess_profile_sentence_by_sentence = guess_profile_sentence_by_sentence
-        self.allow_set_bot = allow_set_bot
-        self.reveal_dialog_id = reveal_dialog_id
+        self.dialog_options = dialog_options
         self.evaluation_options = evaluation_options
+
+        self.guess_profile_sentence_by_sentence = evaluation_options['guess_profile_sentence_by_sentence']
+        self.allow_set_bot = dialog_options['allow_set_bot']
+        self.reveal_dialog_id = dialog_options['reveal_dialog_id']
 
         self.messages = messages
         self.keyboards = keyboards
@@ -327,6 +341,43 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         await messenger.send_message_to_user(user,
                                              info_txt if result else fail_msg,
                                              False)
+
+    async def on_topic_switch(self, user: User):
+        self.log.info(f'user informed about conversation topic switch')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+
+        if not await self._validate_user_state(user,
+                                               self.UserState.IN_DIALOG,
+                                               self.messages('not_in_conversation_unexpected_message')):
+            return
+
+        else:
+            conv = self._conversations[user]
+
+        if not self.dialog_options['show_topics']:
+            await messenger.send_message_to_user(user, self.messages('switch_topic_not_allowed'), False)
+            return
+
+        messages_to_switch_topic_left = await self.dialog_handler.switch_to_next_topic(conv.conv_id, user)
+
+        if messages_to_switch_topic_left == 0:
+            return
+        elif messages_to_switch_topic_left > 0:
+            await messenger.send_message_to_user(user,
+                                                 self.messages('switch_topic_messages_left',
+                                                               messages_to_switch_topic_left),
+                                                 False)
+            return
+        elif messages_to_switch_topic_left < 0:
+            await messenger.send_message_to_user(user, self.messages('switch_topic_not_available'), False)
+            return
+
+    async def on_topic_switched(self, user: User, topic_text: str):
+        self.log.info(f'user informed about conversation topic switch')
+        user = await self._update_user_record_in_db(user)
+        messenger = self._messenger_for_user(user)
+        await messenger.send_message_to_user(user, self.messages('switch_topic_info', topic_text), False)
 
     async def on_enter_set_bot(self, user: User):
         self.log.info(f'user requested for setting bot for conversation')
@@ -475,7 +526,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         conv = self._conversations[user]
         await self.dialog_handler.evaluate_dialog(conv.conv_id, user, score)
 
-        if self.evaluation_options['assign_profile'] and self.evaluation_options['guess_profile']:
+        if self.dialog_options['assign_profile'] and self.evaluation_options['guess_profile']:
             if self.guess_profile_sentence_by_sentence:
                 if not conv.shuffled_sentences:
                     await self._prepare_profile_sentences(user)
@@ -541,7 +592,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self._conversations[user] = self.ConversationRecord(conversation_id, peer_conversation_guid)
         self._user_states[user] = self.UserState.IN_DIALOG
 
-        if self.evaluation_options['assign_profile']:
+        if self.dialog_options['assign_profile']:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
             await messenger.send_message_to_user(user, profile.description, False,
@@ -549,6 +600,9 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         else:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
                                                  keyboard_buttons=self.keyboards['in_dialog'])
+
+        if self.dialog_options['show_topics'] and profile.topics:
+            await self.on_topic_switched(user, profile.topics[0])
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
@@ -752,9 +806,9 @@ class BotsGateway(AbstractGateway):
     _n_trigrams_from_profile_threshold: int
     _bot_queues: Dict[str, asyncio.Queue]
 
-    def __init__(self, n_bad_messages_threshold: int):
+    def __init__(self, dialog_options: dict):
         super().__init__()
-        self._n_bad_messages_threshold = n_bad_messages_threshold
+        self._n_bad_messages_threshold = dialog_options['n_bad_messages_in_a_row_threshold']
         self._bot_queues = {}
         self._active_chats_trigrams = defaultdict(dict)
 

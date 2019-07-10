@@ -12,7 +12,7 @@ from apscheduler.job import Job
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.base import BaseScheduler
-from mongoengine import ValidationError, FieldDoesNotExist
+from mongoengine import ValidationError, FieldDoesNotExist, QuerySet
 
 from convai import run_sync_in_executor
 from convai.conversation_gateways import AbstractGateway, AbstractDialogHandler, HumansGateway, BotsGateway
@@ -33,50 +33,46 @@ class DialogManager(AbstractDialogHandler):
     _dialog_timeout_handlers: Dict[int, Job]
     _active_dialogs: Dict[int, Conversation]
     _lobby: Dict[User, Job]
+
     humans_gateway: HumansGateway
     bots_gateway: BotsGateway
-    inactivity_timeout: Number
-    max_time_in_lobby: Number
-    length_threshold: int
-    human_bot_ratio: float
+
+    dialog_options: dict
+    evaluation_options: dict
+
     dialog_eval_min: int
     dialog_eval_max: int
+    length_threshold: int
+    inactivity_timeout: Number
+    human_bot_ratio: float
+    max_time_in_lobby: Number
 
-    def __init__(self, max_time_in_lobby: Number, human_bot_ratio: float, inactivity_timeout: Number,
-                 length_threshold: int, bots_gateway: BotsGateway, humans_gateway: HumansGateway,
-                 dialog_eval_min: int, dialog_eval_max: int, evaluation_options: dict,
-                 scheduler: BaseScheduler = None):
+    def __init__(self, bots_gateway: BotsGateway, humans_gateway: HumansGateway, dialog_options: dict,
+                 evaluation_options: dict, scheduler: BaseScheduler = None):
         """
         Dialog manager is responsible for handling conversations. Including matching with human and bot peers, dialog 
         setup, dialog evaluation, etc.
 
-        :param max_time_in_lobby: Max time (in seconds) a human can wait for another human peer. A bot is used if no
-            humans are found
-        :param human_bot_ratio: Float in [0, 1] range showing percentage of humans picked for conversation.
-            E.g. 0.2 means that for 20% of conversations there will be an attempt to match with human peer. The rest 80%
-            will be matched with bots right away
-        :param inactivity_timeout: Max time (in seconds) a dialog is considered active. I.e. if both peers perform no
-            actions for 'inactivity_timeout' units of time, then the dialog ends
-        :param length_threshold: Max number of messages allowed in a single dialog. After reaching this number of
-            messages dialog ends automatically
         :param bots_gateway: An object capable of handling system-to-bot communication
         :param humans_gateway: An object capable of handling system-to-human communication
-        :param dialog_eval_min: min score for dialog evaluation
-        :param dialog_eval_max: max score for dialog evaluation
+        :param dialog_options: dialog options
         :param evaluation_options: dialog evaluation options
         :param scheduler: custom non-blocking scheduler object which conforms to the interface of
             apscheduler.schedulers.base.BaseScheduler. Default value is BackgroundScheduler().
         """
-        self.dialog_eval_max = dialog_eval_max
-        self.dialog_eval_min = dialog_eval_min
-        self.scheduler = scheduler if scheduler is not None else AsyncIOScheduler()
         self.humans_gateway = humans_gateway
         self.bots_gateway = bots_gateway
-        self.length_threshold = length_threshold
-        self.inactivity_timeout = inactivity_timeout
-        self.human_bot_ratio = human_bot_ratio
-        self.max_time_in_lobby = max_time_in_lobby
+        self.scheduler = scheduler if scheduler is not None else AsyncIOScheduler()
+
+        self.dialog_options = dialog_options
         self.evaluation_options = evaluation_options
+
+        self.dialog_eval_min = evaluation_options['evaluation_score_from']
+        self.dialog_eval_max = evaluation_options['evaluation_score_to']
+        self.length_threshold = dialog_options['max_length']
+        self.inactivity_timeout = dialog_options['inactivity_timeout']
+        self.human_bot_ratio = dialog_options['human_bot_ratio']
+        self.max_time_in_lobby = dialog_options['max_time_in_lobby']
 
         self._lobby = {}
         self._active_dialogs = {}
@@ -116,12 +112,7 @@ class DialogManager(AbstractDialogHandler):
         if conversation_id in self._evaluations:
             raise ValueError('Conversation is finished. Only evaluation is allowed')
 
-        msg = Message(msg_id=len(conversation.messages),
-                      text=text,
-                      sender=sender,
-                      time=time)
-
-        conversation.messages.append(msg)
+        msg = conversation.add_message(text=text, sender=sender, time=time)
 
         receiver = next((p.peer for p in conversation.participants if p.peer != sender), None)
         if receiver is None:
@@ -157,6 +148,23 @@ class DialogManager(AbstractDialogHandler):
 
         msg.evaluation_score = score
 
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> int:
+        log.info('switching to the next conversation topic')
+        self._validate_conversation_and_peer(conversation_id, peer)
+        conversation: Conversation = self._active_dialogs[conversation_id]
+
+        messages_to_switch_topic_left = conversation.next_topic()
+
+        if messages_to_switch_topic_left == 0:
+            index = conversation.active_topic_index
+            conversation.add_message(text=f'Switched to topic with index {index}', sender=peer, system=True)
+
+            for conv_peer in conversation.participants:
+                await self._gateway_for_peer(conv_peer.peer).on_topic_switched(conv_peer.peer,
+                                                                               conv_peer.assigned_profile.topics[index])
+
+        return messages_to_switch_topic_left
+
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
         log.info(f'end of conversation {conversation_id} triggered')
         self._validate_conversation_and_peer(conversation_id, peer)
@@ -190,7 +198,7 @@ class DialogManager(AbstractDialogHandler):
 
         self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.SCORE_GIVEN
 
-        if not self.evaluation_options['assign_profile'] or not self.evaluation_options['guess_profile']:
+        if not self.dialog_options['assign_profile'] or not self.evaluation_options['guess_profile']:
             self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.PROFILE_SELECTED
 
         await self._handle_evaluation_state(conversation_id)
@@ -368,33 +376,21 @@ class DialogManager(AbstractDialogHandler):
         conversation = Conversation(participant1=ConversationPeer(peer=user, peer_conversation_guid=uuid4().__str__()),
                                     participant2=ConversationPeer(peer=peer, peer_conversation_guid=uuid4().__str__()))
 
-        profiles = await run_sync_in_executor(PersonProfile.objects)
-        profiles_count = await run_sync_in_executor(profiles.count)
+        profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects)
 
-        first_profile_description = None
-        linked_person_profile_uuid = None
+        first_profile = None
+        linked_profile_uuid = None
 
         for p in conversation.participants:
-            if first_profile_description is None:
-                p.assigned_profile = profiles[random.randrange(profiles_count)]
-                first_profile_description = p.assigned_profile.description
-
-                try:
-                    linked_person_profile_uuid = p.assigned_profile.link_uuid
-                except FieldDoesNotExist:
-                    pass
+            if first_profile is None:
+                p.assigned_profile = first_profile = random.choice(profiles)
+                linked_profile_uuid = first_profile.link_uuid
 
             else:
-                # try to select different profile if it exists
-                for _ in range(10000):
-                    if linked_person_profile_uuid:
-                        linked_profiles = PersonProfile.objects(link_uuid=linked_person_profile_uuid)
-                        second_profile: PersonProfile = linked_profiles[random.randrange(linked_profiles.count())]
-                    else:
-                        second_profile: PersonProfile = profiles[random.randrange(profiles_count)]
-
-                    if second_profile.description != first_profile_description:
-                        break
+                # profiles assignment order:
+                # other profile from the same linked group || profile with unmatching sentences || same profile
+                second_profile = random.choice(profiles(id__ne=first_profile.id, link_uuid=linked_profile_uuid) or
+                                               (profiles(sentences__ne=first_profile.sentences) or [first_profile]))
 
                 p.assigned_profile = second_profile
 
@@ -404,6 +400,10 @@ class DialogManager(AbstractDialogHandler):
                     await run_sync_in_executor(lambda: Conversation.objects(conversation_id=conv_id).count()) == 0:
                 break
         conversation.conversation_id = conv_id
+
+        conversation.messages_to_switch_topic = self.dialog_options['n_messages_to_switch_topic']
+        conversation.reset_topic_switch_counter()
+
         self._active_dialogs[conv_id] = conversation
 
         for p in conversation.participants:
@@ -442,18 +442,12 @@ class DialogManager(AbstractDialogHandler):
         self._evaluations[conversation_id] = [self.EvaluationState.NONE] * 2
 
         db_profiles = await run_sync_in_executor(PersonProfile.objects)
-        db_profiles_count = await run_sync_in_executor(db_profiles.count)
 
         to_await = []
         for i, p in enumerate(conversation.participants):
             true_profile: PersonProfile = conversation.participants[1 - i].assigned_profile
-
-            # try to select different profile if it exists
-            for _ in range(10000):
-                random_profile: PersonProfile = \
-                    await run_sync_in_executor(lambda: db_profiles[random.randrange(db_profiles_count)])
-                if true_profile.description != random_profile.description:
-                    break
+            random_profile: PersonProfile = random.choice(db_profiles(sentences__ne=true_profile.sentences) or
+                                                          [true_profile])
 
             profiles = [true_profile, random_profile]
             random.shuffle(profiles)

@@ -92,22 +92,24 @@ async def init():
         keyboards = yaml.safe_load(f.read())
 
     # configure keyboards
-    keyboards['in_dialog'] = keyboards['in_dialog']['default']
-    keyboards['set_bot'] = keyboards['set_bot']['default']
-
-    if config['dialog']['allow_set_bot']:
+    if config['dialog_options']['allow_set_bot']:
         keyboards['idle'] = keyboards['idle']['setbot']
     else:
         keyboards['idle'] = keyboards['idle']['default']
 
-    humans_gateway = HumansGateway(config['dialog']['guess_profile_sentence_by_sentence'],
-                                   config['dialog']['allow_set_bot'],
-                                   config['dialog']['reveal_dialog_id'],
+    if config['dialog_options']['show_topics']:
+        keyboards['in_dialog'] = keyboards['in_dialog']['show_topics']
+    else:
+        keyboards['in_dialog'] = keyboards['in_dialog']['default']
+
+    keyboards['set_bot'] = keyboards['set_bot']['default']
+
+    humans_gateway = HumansGateway(config['dialog_options'],
                                    config['evaluation_options'],
                                    messages,
                                    keyboards)
 
-    bots_gateway = BotsGateway(config['dialog']['n_bad_messages_in_a_row_threshold'])
+    bots_gateway = BotsGateway(config['dialog_options'])
 
     init_tasks = []
 
@@ -122,14 +124,9 @@ async def init():
         init_tasks.append(tg_messenger.perform_initial_setup())
         humans_gateway.add_messengers(tg_messenger)
 
-    dialog_manager = DialogManager(config['dialog']['max_time_in_lobby'],
-                                   config['dialog']['human_bot_ratio'],
-                                   config['dialog']['inactivity_timeout'],
-                                   config['dialog']['max_length'],
-                                   bots_gateway,
+    dialog_manager = DialogManager(bots_gateway,
                                    humans_gateway,
-                                   config['dialog']['evaluation_score_from'],
-                                   config['dialog']['evaluation_score_to'],
+                                   config['dialog_options'],
                                    config['evaluation_options'])
 
     humans_gateway.dialog_handler = dialog_manager
