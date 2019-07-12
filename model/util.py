@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime, timedelta
 from io import StringIO
 from typing import TextIO, Union
@@ -17,6 +18,7 @@ def fill_db_with_stub(n_bots=5,
                       n_humans_banned=2,
                       n_banned_pairs=3,
                       n_profiles=20,
+                      n_topics=3,
                       n_conversations=20,
                       n_msg_per_conv=15,
                       n_complaints_new=3,
@@ -25,7 +27,10 @@ def fill_db_with_stub(n_bots=5,
     with open(os.path.join(os.path.split(__file__)[0], "lorem_ipsum.txt"), 'r') as f:
         lorem_ipsum = f.read().split(' ')
 
-    profiles = [PersonProfile(sentences=[' '.join(lorem_ipsum[i * 10:(i + 1) * 10])]).save() for i in range(n_profiles)]
+    profiles = [PersonProfile(sentences=[' '.join(lorem_ipsum[i * 10:(i + 1) * 10])],
+                              link_uuid=str(uuid4()),
+                              topics=[f'Topic_{i}' for i in range(random.randrange(n_topics + 1))]
+                              ).save() for i in range(n_profiles)]
     bots = [Bot(token='stub' + str(uuid4()),
                 bot_name='stub bot #' + str(i)).save() for i in range(n_bots)]
     banned_bots = [Bot(token='stub' + str(uuid4()),
