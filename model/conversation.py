@@ -56,8 +56,11 @@ class Conversation(Document):
         self.messages_to_switch_topic_left = self.messages_to_switch_topic
 
     def next_topic(self) -> int:
-        p1_topics_n = len(self.participant1.assigned_profile.topics)
-        p2_topics_n = len(self.participant2.assigned_profile.topics)
+        p1_topics = self.participant1.assigned_profile.topics or []
+        p2_topics = self.participant2.assigned_profile.topics or []
+
+        p1_topics_n = len(p1_topics)
+        p2_topics_n = len(p2_topics)
 
         if self.active_topic_index + 1 < min(p1_topics_n, p2_topics_n):
             if self.messages_to_switch_topic_left <= 0:

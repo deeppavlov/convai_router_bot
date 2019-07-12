@@ -7,7 +7,7 @@ class PersonProfile(Document):
     """Profile assigned to the conversation participant"""
     sentences: List[str] = ListField(StringField(), required=True)
     link_uuid: Optional[str] = StringField(required=True)
-    topics: Optional[List[str]] = ListField(StringField(), required=True)
+    topics: Optional[List[str]] = ListField(StringField(), required=False)
 
     @property
     def description(self) -> str:
