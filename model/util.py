@@ -247,7 +247,7 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
                 'text': msg.text,
                 'evaluation_score': msg.evaluation_score,
                 'system': msg.system,
-                'time': msg.time.strftime("%Y.%m.%d %H:%M:%S"),
+                'time': msg.time.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
             training_conv['dialog'].append(training_message)
