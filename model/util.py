@@ -245,7 +245,8 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
                 'sender': usr[0],
                 'sender_class': usr[1],
                 'text': msg.text,
-                'evaluation_score': msg.evaluation_score
+                'evaluation_score': msg.evaluation_score,
+                'system': msg.system
             }
 
             training_conv['dialog'].append(training_message)
