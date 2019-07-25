@@ -1,13 +1,16 @@
 import os
 import random
+import re
 from datetime import datetime, timedelta
-from io import StringIO
+from io import StringIO, BytesIO
 from typing import TextIO, Union
+from textwrap import wrap
 from uuid import uuid4
 from collections import defaultdict
 
 from mongoengine import errors
 from mongoengine.queryset.visitor import Q
+from PIL import Image, ImageDraw, ImageFont
 
 from . import Bot, PersonProfile, User, UserPK, BannedPair, Conversation, ConversationPeer, Message, Complaint
 
@@ -462,3 +465,30 @@ def export_parlai_conversations(date_begin=None, date_end=None):
             parlai_convs[conv_id] = conv_processed
 
     return parlai_convs
+
+
+def get_image_from_text(text: str) -> bytes:
+    """
+    Generates jpeg image as bytes array for profile description and profile topic.
+    :param text:
+    :return:
+    """
+    font_size = 50
+    bg_color = (255, 255, 255)
+    fnt_color = (0, 0, 0)
+    if text.find('Тема:') > -1:
+        lines = re.match('(.*?)(\(.*)', text).groups()
+        lines = [lines[0]] + wrap(lines[1], width=25)
+    else:
+        lines = re.findall(r'(.+?)\.', text)
+    fnt = ImageFont.truetype('arial.ttf', font_size)
+    width = max([fnt.getsize(line)[0] for line in lines]) + 20
+    height = max(width//2, len(lines)*font_size+20)
+    img = Image.new('RGB', (width, height), color=bg_color)
+    d = ImageDraw.Draw(img)
+    for i, line in enumerate(lines):
+        x_begin = (width - fnt.getsize(line)[0]) // 2
+        d.text((x_begin, 10+i*font_size), line, font=fnt, fill=fnt_color)
+    output = BytesIO()
+    img.save(output, format='JPEG')
+    return output.getvalue()
