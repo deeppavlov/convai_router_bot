@@ -3,6 +3,7 @@ from .bot import Bot
 from .complaint import Complaint
 from .conversation import Conversation
 from .conversation_peer import ConversationPeer
+from .image import Image
 from .message import Message
 from .person_profile import PersonProfile
 from .user import UserPK, User

@@ -184,13 +184,19 @@ class TelegramMessenger(AbstractMessenger):
                             include_inline_evaluation_query: bool,
                             keyboard_buttons: Optional[List[str]] = None,
                             **kwargs) -> str:
+        print('In _send_message\n', kwargs, '\n')
         if include_inline_evaluation_query:
             kb = self._get_evaluate_msg_keyboard()
         elif keyboard_buttons is not None:
             kb = ReplyKeyboardMarkup(keyboard=[keyboard_buttons], resize_keyboard=True)
         else:
             kb = None
-        kwargs = {'reply_markup': kb} if kb is not None else {}
+        if 'image' in kwargs:
+            kwargs = {'image': kwargs['image']}
+        else:
+            kwargs = {}
+        if kb is not None:
+            kwargs['reply_markup'] = kb
         reply = await self._send_msg_with_timeouts_handling(user_id, msg_text, **kwargs)
 
         self.log.info(f'message sent to {user_id}')
@@ -221,7 +227,16 @@ class TelegramMessenger(AbstractMessenger):
     async def _send_msg_with_timeouts_handling(self, user_id, msg_text, *args, **kwargs):
         while True:
             try:
-                return await self._tg_bot.sendMessage(user_id, msg_text, *args, **kwargs)
+                print('\n', kwargs, '\n')
+                if 'image' not in kwargs:
+                    return await self._tg_bot.sendMessage(user_id, msg_text, *args, **kwargs)
+                img = kwargs.pop('image')
+                if img.telegram_id is not None:
+                    return await self._tg_bot.sendPhoto(user_id, img.telegram_id, *args, **kwargs)
+                reply = await self._tg_bot.sendPhoto(user_id, img.binary, *args, **kwargs)
+                img.telegram_id = reply['photo'][-1]['file_id']
+                img.save()
+                return reply
             except TelegramError as e:
                 if e.error_code == 429:
                     params = e.json['parameters'] if 'parameters' in e.json else {}

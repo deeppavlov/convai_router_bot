@@ -595,8 +595,13 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         if self.dialog_options['assign_profile']:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
-            await messenger.send_message_to_user(user, profile.description, False,
-                                                 keyboard_buttons=self.keyboards['in_dialog'])
+            if self.dialog_options['use_images']:
+                await messenger.send_message_to_user(user, 'Useless', False,
+                                                     keyboard_buttons=self.keyboards['in_dialog'],
+                                                     image=profile.description_image)
+            else:
+                await messenger.send_message_to_user(user, profile.description, False,
+                                                     keyboard_buttons=self.keyboards['in_dialog'])
         else:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
                                                  keyboard_buttons=self.keyboards['in_dialog'])
