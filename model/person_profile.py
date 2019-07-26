@@ -1,6 +1,8 @@
-from typing import List, Optional
+from typing import List, Dict, Optional
 
 from mongoengine import *
+
+from .image import Image
 
 
 class PersonProfile(Document):
@@ -8,6 +10,8 @@ class PersonProfile(Document):
     sentences: List[str] = ListField(StringField(), required=True)
     link_uuid: Optional[str] = StringField(required=True)
     topics: Optional[List[str]] = ListField(StringField(), required=False)
+    sentences_image: Optional[Image] = EmbeddedDocumentField(Image)
+    topics_images: Optional[Dict[int, Image]] = DictField()
 
     @property
     def description(self) -> str:
