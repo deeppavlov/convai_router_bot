@@ -10,7 +10,7 @@ class PersonProfile(Document):
     sentences: List[str] = ListField(StringField(), required=True)
     link_uuid: Optional[str] = StringField(required=True)
     topics: Optional[List[str]] = ListField(StringField(), required=False)
-    sentences_image: Optional[Image] = ObjectIdField(Image)
+    sentences_image: str = ObjectIdField()
     topics_images: Optional[Dict[int, Image]] = DictField()
 
     @property
