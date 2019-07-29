@@ -596,7 +596,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
             if self.dialog_options['use_images']:
-                await messenger.send_message_to_user(user, 'Useless', False,
+                await messenger.send_message_to_user(user, 'An image should be there.', False,
                                                      keyboard_buttons=self.keyboards['in_dialog'],
                                                      image=profile.description_image)
             else:

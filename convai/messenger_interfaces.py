@@ -184,17 +184,13 @@ class TelegramMessenger(AbstractMessenger):
                             include_inline_evaluation_query: bool,
                             keyboard_buttons: Optional[List[str]] = None,
                             **kwargs) -> str:
-        print('In _send_message\n', kwargs, '\n')
         if include_inline_evaluation_query:
             kb = self._get_evaluate_msg_keyboard()
         elif keyboard_buttons is not None:
             kb = ReplyKeyboardMarkup(keyboard=[keyboard_buttons], resize_keyboard=True)
         else:
             kb = None
-        if 'image' in kwargs:
-            kwargs = {'image': kwargs['image']}
-        else:
-            kwargs = {}
+        kwargs = {'image': kwargs['image']} if 'image' in kwargs else {}
         if kb is not None:
             kwargs['reply_markup'] = kb
         reply = await self._send_msg_with_timeouts_handling(user_id, msg_text, **kwargs)
@@ -227,7 +223,6 @@ class TelegramMessenger(AbstractMessenger):
     async def _send_msg_with_timeouts_handling(self, user_id, msg_text, *args, **kwargs):
         while True:
             try:
-                print('\n', kwargs, '\n')
                 if 'image' not in kwargs:
                     return await self._tg_bot.sendMessage(user_id, msg_text, *args, **kwargs)
                 img = kwargs.pop('image')
@@ -245,6 +240,9 @@ class TelegramMessenger(AbstractMessenger):
                     await asyncio.sleep(timeout)
                 elif e.error_code == 504:
                     self.log.warning(f'Timeout. Retrying...')
+                elif e.error_code == 400 and 'img' in locals():
+                    self.log.warning(e.description)
+                    img.telegram_id = None
                 else:
                     raise
 
