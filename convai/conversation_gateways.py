@@ -62,6 +62,7 @@ class AbstractDialogHandler(ABC):
 
         :param conversation_id: integer id of the dialog
         :param peer: a peer willing to switch conversation topic
+        :param use_images: True if sending topic as image
         """
         pass
 
@@ -238,8 +239,8 @@ class NoopDialogHandler(AbstractDialogHandler):
 class HumansGateway(AbstractGateway, AbstractHumansGateway):
     class ConversationRecord:
         message_ids_map: Dict[str, int]
-        opponent_profile_options: List[PersonProfile]
-        opponent_profile_correct: PersonProfile
+        opponent_profile_options: Optional[List[PersonProfile]]
+        opponent_profile_correct: Optional[PersonProfile]
         sentences_selected: int
         shuffled_sentences: List[Tuple[str, str]]
         peer_conversation_guid: str
@@ -596,22 +597,16 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         if self.dialog_options['assign_profile']:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
-            if self.dialog_options['use_images']:
-                await messenger.send_message_to_user(user, 'An image should be there.', False,
-                                                     keyboard_buttons=self.keyboards['in_dialog'],
-                                                     image=profile.description_image)
-            else:
-                await messenger.send_message_to_user(user, profile.description, False,
-                                                     keyboard_buttons=self.keyboards['in_dialog'])
+            kwargs = {'image': profile.description_image} if self.dialog_options['use_images'] else {}
+            await messenger.send_message_to_user(user, profile.description, False,
+                                                 keyboard_buttons=self.keyboards['in_dialog'], **kwargs)
         else:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
                                                  keyboard_buttons=self.keyboards['in_dialog'])
 
         if self.dialog_options['show_topics'] and profile.topics:
-            if self.dialog_options['use_images']:
-                await self.on_topic_switched(user, profile.topics[0], image=profile.get_topic_image(0))
-            else:
-                await self.on_topic_switched(user, profile.topics[0])
+            kwargs = {'image': profile.get_topic_image(0)} if self.dialog_options['use_images'] else {}
+            await self.on_topic_switched(user, profile.topics[0], **kwargs)
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')

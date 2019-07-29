@@ -225,10 +225,11 @@ class TelegramMessenger(AbstractMessenger):
             try:
                 if 'image' not in kwargs:
                     return await self._tg_bot.sendMessage(user_id, msg_text, *args, **kwargs)
-                img = kwargs.pop('image')
+                img = kwargs['image']
+                kwargs_wo_image = {key: kwargs[key] for key in kwargs if key != 'image'}
                 if img.telegram_id is not None:
-                    return await self._tg_bot.sendPhoto(user_id, img.telegram_id, *args, **kwargs)
-                reply = await self._tg_bot.sendPhoto(user_id, img.binary, *args, **kwargs)
+                    return await self._tg_bot.sendPhoto(user_id, img.telegram_id, *args, **kwargs_wo_image)
+                reply = await self._tg_bot.sendPhoto(user_id, img.binary, *args, **kwargs_wo_image)
                 img.telegram_id = reply['photo'][-1]['file_id']
                 img.save()
                 return reply
@@ -240,10 +241,9 @@ class TelegramMessenger(AbstractMessenger):
                     await asyncio.sleep(timeout)
                 elif e.error_code == 504:
                     self.log.warning(f'Timeout. Retrying...')
-                elif e.error_code == 400 and 'img' in locals():
+                elif e.error_code == 400:
                     self.log.warning(e.description)
                     img.telegram_id = None
-                    kwargs['image'] = img
                 else:
                     raise
 
