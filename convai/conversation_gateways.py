@@ -56,7 +56,7 @@ class AbstractDialogHandler(ABC):
         pass
 
     @abstractmethod
-    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
+    async def switch_to_next_topic(self, conversation_id: int, peer: User, use_images: bool = False) -> bool:
         """
         Should be called when a switch to next conversation topic is requested for one of the peers
 
@@ -214,7 +214,7 @@ class NoopDialogHandler(AbstractDialogHandler):
                                    msg_id: int = None):
         pass
 
-    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
+    async def switch_to_next_topic(self, conversation_id: int, peer: User, use_images: bool = False) -> bool:
         return False
 
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
@@ -359,7 +359,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('switch_topic_not_allowed'), False)
             return
 
-        messages_to_switch_topic_left = await self.dialog_handler.switch_to_next_topic(conv.conv_id, user)
+        messages_to_switch_topic_left = await self.dialog_handler.switch_to_next_topic(conv.conv_id, user, self.dialog_options['use_images'])
 
         if messages_to_switch_topic_left == 0:
             return
@@ -373,11 +373,11 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('switch_topic_not_available'), False)
             return
 
-    async def on_topic_switched(self, user: User, topic_text: str):
+    async def on_topic_switched(self, user: User, topic_text: str, **kwargs):
         self.log.info(f'user informed about conversation topic switch')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        await messenger.send_message_to_user(user, self.messages('switch_topic_info', topic_text), False)
+        await messenger.send_message_to_user(user, self.messages('switch_topic_info', topic_text), False, **kwargs)
 
     async def on_enter_set_bot(self, user: User):
         self.log.info(f'user requested for setting bot for conversation')
@@ -607,7 +607,10 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
                                                  keyboard_buttons=self.keyboards['in_dialog'])
 
         if self.dialog_options['show_topics'] and profile.topics:
-            await self.on_topic_switched(user, profile.topics[0])
+            if self.dialog_options['use_images']:
+                await self.on_topic_switched(user, profile.topics[0], image=profile.get_topic_image(0))
+            else:
+                await self.on_topic_switched(user, profile.topics[0])
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
@@ -816,6 +819,9 @@ class BotsGateway(AbstractGateway):
         self._n_bad_messages_threshold = dialog_options['n_bad_messages_in_a_row_threshold']
         self._bot_queues = {}
         self._active_chats_trigrams = defaultdict(dict)
+
+    async def on_topic_switched(self, user: User, topic_text: str, **kwargs):
+        pass
 
     async def start_conversation(self, conversation_id: int, own_peer: Bot, profile: PersonProfile,
                                  peer_conversation_guid: str):

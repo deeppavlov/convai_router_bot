@@ -148,7 +148,7 @@ class DialogManager(AbstractDialogHandler):
 
         msg.evaluation_score = score
 
-    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> int:
+    async def switch_to_next_topic(self, conversation_id: int, peer: User, use_images: bool = False) -> int:
         log.info('switching to the next conversation topic')
         self._validate_conversation_and_peer(conversation_id, peer)
         conversation: Conversation = self._active_dialogs[conversation_id]
@@ -160,8 +160,10 @@ class DialogManager(AbstractDialogHandler):
             conversation.add_message(text=f'Switched to topic with index {index}', sender=peer, system=True)
 
             for conv_peer in conversation.participants:
+                kwargs = {'image': conv_peer.assigned_profile.get_topic_image(index)} if use_images else {}
                 await self._gateway_for_peer(conv_peer.peer).on_topic_switched(conv_peer.peer,
-                                                                               conv_peer.assigned_profile.topics[index])
+                                                                               conv_peer.assigned_profile.topics[index],
+                                                                               **kwargs)
 
         return messages_to_switch_topic_left
 

@@ -30,8 +30,16 @@ class PersonProfile(Document):
             self.sentences_image = img.id
         return Image.objects(id=self.sentences_image)[0]
 
+    def get_topic_image(self, topic_num) -> Image:
+        if not self.topics_images.get(topic_num, None):
+            img = Image()
+            img.binary = self.get_image_from_text(self.topics[topic_num], True)
+            img.save()
+            self.topics_images[topic_num] = img.id
+        return Image.objects(id=self.topics_images[topic_num])[0]
+
     @staticmethod
-    def get_image_from_text(text: str) -> bytes:
+    def get_image_from_text(text: str, topic: bool = False) -> bytes:
         """
         Generates jpeg image as bytes array for profile description and profile topic.
         :param text:
@@ -40,9 +48,8 @@ class PersonProfile(Document):
         font_size = 50
         bg_color = (255, 255, 255)
         fnt_color = (0, 0, 0)
-        if text.find('Тема:') > -1:
-            lines = re.match('(.*?)(\(.*)', text).groups()
-            lines = [lines[0]] + wrap(lines[1], width=25)
+        if topic:
+            lines = wrap(text, width=25)
         else:
             lines = re.findall(r'(.+?)\.', text)
         fnt = ImageFont.truetype('/home/ubuntu/remote_development/model/arial.ttf', font_size)

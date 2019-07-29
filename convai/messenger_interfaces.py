@@ -182,8 +182,8 @@ class TelegramMessenger(AbstractMessenger):
     async def _send_message(self, user_id: str,
                             msg_text: str,
                             include_inline_evaluation_query: bool,
-                            keyboard_buttons: Optional[List[str]] = None,
                             **kwargs) -> str:
+        keyboard_buttons: Optional[List[str]] = kwargs.get('keyboard_buttons', None)
         if include_inline_evaluation_query:
             kb = self._get_evaluate_msg_keyboard()
         elif keyboard_buttons is not None:
