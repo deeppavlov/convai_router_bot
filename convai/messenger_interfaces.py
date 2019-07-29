@@ -243,6 +243,7 @@ class TelegramMessenger(AbstractMessenger):
                 elif e.error_code == 400 and 'img' in locals():
                     self.log.warning(e.description)
                     img.telegram_id = None
+                    kwargs['image'] = img
                 else:
                     raise
 

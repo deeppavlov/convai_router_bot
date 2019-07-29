@@ -1,6 +1,6 @@
 import re
 from io import BytesIO
-from typing import List, Dict, Optional
+from typing import List, Optional
 from textwrap import wrap
 from PIL import Image as Im, ImageDraw, ImageFont
 
@@ -15,7 +15,7 @@ class PersonProfile(Document):
     link_uuid: Optional[str] = StringField(required=True)
     topics: Optional[List[str]] = ListField(StringField(), required=False)
     sentences_image: str = ObjectIdField()
-    topics_images: Optional[Dict[int, Image]] = DictField()
+    topics_images: Optional[List[str]] = ListField()
 
     @property
     def description(self) -> str:
@@ -28,14 +28,16 @@ class PersonProfile(Document):
             img.binary = self.get_image_from_text(self.description)
             img.save()
             self.sentences_image = img.id
+            self.save()
         return Image.objects(id=self.sentences_image)[0]
 
     def get_topic_image(self, topic_num) -> Image:
-        if not self.topics_images.get(topic_num, None):
+        if len(self.topics_images) <= topic_num:
             img = Image()
             img.binary = self.get_image_from_text(self.topics[topic_num], True)
             img.save()
-            self.topics_images[topic_num] = img.id
+            self.topics_images.append(img.id)
+            self.save()
         return Image.objects(id=self.topics_images[topic_num])[0]
 
     @staticmethod

@@ -377,7 +377,8 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.log.info(f'user informed about conversation topic switch')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        await messenger.send_message_to_user(user, self.messages('switch_topic_info', topic_text), False, **kwargs)
+        await messenger.send_message_to_user(user, self.messages('switch_topic_info'), False)
+        await messenger.send_message_to_user(user, topic_text, False, **kwargs)
 
     async def on_enter_set_bot(self, user: User):
         self.log.info(f'user requested for setting bot for conversation')
