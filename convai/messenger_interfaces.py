@@ -183,6 +183,7 @@ class TelegramMessenger(AbstractMessenger):
                             msg_text: str,
                             include_inline_evaluation_query: bool,
                             **kwargs) -> str:
+        image = kwargs.get('image', None)
         keyboard_buttons: Optional[List[str]] = kwargs.get('keyboard_buttons', None)
         if include_inline_evaluation_query:
             kb = self._get_evaluate_msg_keyboard()
@@ -190,7 +191,9 @@ class TelegramMessenger(AbstractMessenger):
             kb = ReplyKeyboardMarkup(keyboard=[keyboard_buttons], resize_keyboard=True)
         else:
             kb = None
-        kwargs = {'image': kwargs['image']} if 'image' in kwargs else {}
+        kwargs = {}
+        if image is not None:
+            kwargs['image'] = image
         if kb is not None:
             kwargs['reply_markup'] = kb
         reply = await self._send_msg_with_timeouts_handling(user_id, msg_text, **kwargs)
@@ -224,14 +227,16 @@ class TelegramMessenger(AbstractMessenger):
         while True:
             try:
                 if 'image' not in kwargs:
-                    return await self._tg_bot.sendMessage(user_id, msg_text, *args, **kwargs)
-                img = kwargs['image']
-                kwargs_wo_image = {key: kwargs[key] for key in kwargs if key != 'image'}
-                if img.telegram_id is not None:
-                    return await self._tg_bot.sendPhoto(user_id, img.telegram_id, *args, **kwargs_wo_image)
-                reply = await self._tg_bot.sendPhoto(user_id, img.binary, *args, **kwargs_wo_image)
-                img.telegram_id = reply['photo'][-1]['file_id']
-                img.save()
+                    reply = await self._tg_bot.sendMessage(user_id, msg_text, *args, **kwargs)
+                else:
+                    img = kwargs['image']
+                    kwargs_wo_image = {key: kwargs[key] for key in kwargs if key != 'image'}
+                    if img.telegram_id is not None:
+                        reply = await self._tg_bot.sendPhoto(user_id, img.telegram_id, *args, **kwargs_wo_image)
+                    else:
+                        reply = await self._tg_bot.sendPhoto(user_id, img.binary, *args, **kwargs_wo_image)
+                        img.telegram_id = reply['photo'][-1]['file_id']
+                        img.save()
                 return reply
             except TelegramError as e:
                 if e.error_code == 429:

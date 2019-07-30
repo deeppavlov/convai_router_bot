@@ -56,7 +56,7 @@ class AbstractDialogHandler(ABC):
         pass
 
     @abstractmethod
-    async def switch_to_next_topic(self, conversation_id: int, peer: User, use_images: bool = False) -> bool:
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
         """
         Should be called when a switch to next conversation topic is requested for one of the peers
 
@@ -215,7 +215,7 @@ class NoopDialogHandler(AbstractDialogHandler):
                                    msg_id: int = None):
         pass
 
-    async def switch_to_next_topic(self, conversation_id: int, peer: User, use_images: bool = False) -> bool:
+    async def switch_to_next_topic(self, conversation_id: int, peer: User) -> bool:
         return False
 
     async def trigger_dialog_end(self, conversation_id: int, peer: Union[Bot, User]):
@@ -360,7 +360,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('switch_topic_not_allowed'), False)
             return
 
-        messages_to_switch_topic_left = await self.dialog_handler.switch_to_next_topic(conv.conv_id, user, self.dialog_options['use_images'])
+        messages_to_switch_topic_left = await self.dialog_handler.switch_to_next_topic(conv.conv_id, user)
 
         if messages_to_switch_topic_left == 0:
             return
