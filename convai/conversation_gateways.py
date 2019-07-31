@@ -815,9 +815,17 @@ class BotsGateway(AbstractGateway):
         self._n_bad_messages_threshold = dialog_options['n_bad_messages_in_a_row_threshold']
         self._bot_queues = {}
         self._active_chats_trigrams = defaultdict(dict)
+        self._use_topics = dialog_options['show_topics']
 
-    async def on_topic_switched(self, user: User, topic_text: str, **kwargs):
-        pass
+    async def on_topic_switched(self, peer: Bot, topic_text: str, **kwargs):
+        bot = await self._get_bot(peer.token)
+        q = self._get_queue(bot)
+        kwargs['command'] = 'newtopic'
+        kwargs['topic'] = topic_text
+        msg = self._get_message_dict(datetime.utcnow(),
+                                     **kwargs)
+        q.put_nowait(msg)
+        self.log.info(f'new topic was sent to bot {bot.token}')
 
     async def start_conversation(self, conversation_id: int, own_peer: Bot, profile: PersonProfile,
                                  peer_conversation_guid: str):
@@ -826,20 +834,23 @@ class BotsGateway(AbstractGateway):
         bot = await self._get_bot(own_peer.token)
         q = self._get_queue(bot)
         self._active_chats_trigrams[conversation_id][bot.token] = self.TrigramsStorage(profile.description)
-        msg = self._get_message_dict(f'/start\n{profile.description}',
-                                     datetime.utcnow(),
+        kwargs = {'command': 'start', 'profile': profile.description}
+        if self._use_topics and profile.topics:
+            kwargs['topic'] = profile.topics[0]
+        msg = self._get_message_dict(datetime.utcnow(),
                                      conversation_id,
-                                     0)
+                                     0,
+                                     **kwargs)
         q.put_nowait(msg)
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: Bot):
         self.log.info(f'sending message to bot {receiving_peer.token} in conversation {conversation_id}')
         bot = await self._get_bot(receiving_peer.token)
         q = self._get_queue(bot)
-        msg = self._get_message_dict(msg_text,
-                                     datetime.utcnow(),
+        msg = self._get_message_dict(datetime.utcnow(),
                                      conversation_id,
-                                     msg_id)
+                                     msg_id,
+                                     text=msg_text)
         q.put_nowait(msg)
 
     async def start_evaluation(self, conversation_id: int, peer: Bot, other_peer_profile_options: List[PersonProfile],
@@ -848,10 +859,11 @@ class BotsGateway(AbstractGateway):
         bot = await self._get_bot(peer.token)
         q = self._get_queue(bot)
         profiles_desc = '\n'.join([f'/profile_{i}\n{p.description}' for i, p in enumerate(other_peer_profile_options)])
-        q.put_nowait(self._get_message_dict(f'/end {scores_range.start} {scores_range.stop - 1}\n{profiles_desc}',
-                                            datetime.utcnow(),
+        q.put_nowait(self._get_message_dict(datetime.utcnow(),
                                             conversation_id,
-                                            10 ** 6))
+                                            10 ** 6,
+                                            text=f'{scores_range.start} {scores_range.stop - 1}\n{profiles_desc}',
+                                            command='end'))
 
     async def finish_conversation(self, conversation_id: int):
         del self._active_chats_trigrams[conversation_id]
@@ -919,7 +931,7 @@ class BotsGateway(AbstractGateway):
                                                                score,
                                                                evaluated_msg_id)
 
-        return self._get_message_dict(msg_raw, date, chat_id, msg_id)
+        return self._get_message_dict(date, chat_id, msg_id, text=msg_raw)
 
     async def _validate_trigrams(self, msg: str, chat_id: int, bot: Bot):
         storage = self._active_chats_trigrams[chat_id][bot.token]
@@ -951,7 +963,8 @@ class BotsGateway(AbstractGateway):
         return self._bot_queues[bot.token]
 
     @staticmethod
-    def _get_message_dict(text: str, date: datetime, conv_id: int, msg_id: int) -> dict:
+    def _get_message_dict(date: datetime, conv_id: int, msg_id: int, text: str = None, command: str = None,
+                          profile: str = None, topic: str = None) -> dict:
         return {
             "message_id": msg_id,
             "from": {
@@ -965,5 +978,10 @@ class BotsGateway(AbstractGateway):
                 "type": "private"
             },
             "date": calendar.timegm(date.utctimetuple()),
-            "text": text
+            "payload": {
+                "text": text,
+                "command": command,
+                "profile": profile,
+                "topic": topic
+            }
         }
