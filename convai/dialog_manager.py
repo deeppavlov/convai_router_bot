@@ -160,8 +160,12 @@ class DialogManager(AbstractDialogHandler):
             conversation.add_message(text=f'Switched to topic with index {index}', sender=peer, system=True)
 
             for conv_peer in conversation.participants:
+                kwargs = {}
+                if self.dialog_options['use_images']:
+                    kwargs['image'] = conv_peer.assigned_profile.get_topic_image(index)
                 await self._gateway_for_peer(conv_peer.peer).on_topic_switched(conv_peer.peer,
-                                                                               conv_peer.assigned_profile.topics[index])
+                                                                               conv_peer.assigned_profile.topics[index],
+                                                                               **kwargs)
 
         return messages_to_switch_topic_left
 

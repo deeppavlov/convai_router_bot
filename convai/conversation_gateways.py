@@ -62,6 +62,7 @@ class AbstractDialogHandler(ABC):
 
         :param conversation_id: integer id of the dialog
         :param peer: a peer willing to switch conversation topic
+        :param use_images: True if sending topic as image
         """
         pass
 
@@ -238,8 +239,8 @@ class NoopDialogHandler(AbstractDialogHandler):
 class HumansGateway(AbstractGateway, AbstractHumansGateway):
     class ConversationRecord:
         message_ids_map: Dict[str, int]
-        opponent_profile_options: List[PersonProfile]
-        opponent_profile_correct: PersonProfile
+        opponent_profile_options: Optional[List[PersonProfile]]
+        opponent_profile_correct: Optional[PersonProfile]
         sentences_selected: int
         shuffled_sentences: List[Tuple[str, str]]
         peer_conversation_guid: str
@@ -373,11 +374,12 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('switch_topic_not_available'), False)
             return
 
-    async def on_topic_switched(self, user: User, topic_text: str):
+    async def on_topic_switched(self, user: User, topic_text: str, **kwargs):
         self.log.info(f'user informed about conversation topic switch')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        await messenger.send_message_to_user(user, self.messages('switch_topic_info', topic_text), False)
+        await messenger.send_message_to_user(user, self.messages('switch_topic_info'), False)
+        await messenger.send_message_to_user(user, topic_text, False, **kwargs)
 
     async def on_enter_set_bot(self, user: User):
         self.log.info(f'user requested for setting bot for conversation')
@@ -595,14 +597,16 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         if self.dialog_options['assign_profile']:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
+            kwargs = {'image': profile.description_image} if self.dialog_options['use_images'] else {}
             await messenger.send_message_to_user(user, profile.description, False,
-                                                 keyboard_buttons=self.keyboards['in_dialog'])
+                                                 keyboard_buttons=self.keyboards['in_dialog'], **kwargs)
         else:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
                                                  keyboard_buttons=self.keyboards['in_dialog'])
 
         if self.dialog_options['show_topics'] and profile.topics:
-            await self.on_topic_switched(user, profile.topics[0])
+            kwargs = {'image': profile.get_topic_image(0)} if self.dialog_options['use_images'] else {}
+            await self.on_topic_switched(user, profile.topics[0], **kwargs)
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
@@ -811,6 +815,9 @@ class BotsGateway(AbstractGateway):
         self._n_bad_messages_threshold = dialog_options['n_bad_messages_in_a_row_threshold']
         self._bot_queues = {}
         self._active_chats_trigrams = defaultdict(dict)
+
+    async def on_topic_switched(self, user: User, topic_text: str, **kwargs):
+        pass
 
     async def start_conversation(self, conversation_id: int, own_peer: Bot, profile: PersonProfile,
                                  peer_conversation_guid: str):
