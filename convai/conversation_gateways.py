@@ -862,8 +862,10 @@ class BotsGateway(AbstractGateway):
         q.put_nowait(self._get_message_dict(datetime.utcnow(),
                                             conversation_id,
                                             10 ** 6,
-                                            text=f'{scores_range.start} {scores_range.stop - 1}\n{profiles_desc}',
-                                            command='end'))
+                                            profile=profiles_desc,
+                                            command='end',
+                                            scores_range_start=scores_range.start,
+                                            scores_range_stop=scores_range.stop))
 
     async def finish_conversation(self, conversation_id: int):
         del self._active_chats_trigrams[conversation_id]
@@ -964,7 +966,8 @@ class BotsGateway(AbstractGateway):
 
     @staticmethod
     def _get_message_dict(date: datetime, conv_id: int, msg_id: int, text: str = None, command: str = None,
-                          profile: str = None, topic: str = None) -> dict:
+                          profile: str = None, topic: str = None, scores_range_start: int = None,
+                          scores_range_stop: int = None) -> dict:
         return {
             "message_id": msg_id,
             "from": {
@@ -982,6 +985,8 @@ class BotsGateway(AbstractGateway):
                 "text": text,
                 "command": command,
                 "profile": profile,
-                "topic": topic
+                "topic": topic,
+                "scores_range_start": scores_range_start,
+                "scores_range_stop": scores_range_stop
             }
         }
