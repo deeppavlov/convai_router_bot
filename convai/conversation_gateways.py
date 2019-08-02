@@ -965,9 +965,14 @@ class BotsGateway(AbstractGateway):
         return self._bot_queues[bot.token]
 
     @staticmethod
-    def _get_message_dict(date: datetime, conv_id: int, msg_id: int, text: str = None, command: str = None,
-                          profile: str = None, topic: str = None, scores_range_start: int = None,
-                          scores_range_stop: int = None) -> dict:
+    def _get_message_dict(date: datetime, conv_id: int, msg_id: int, **kwargs) -> dict:
+        text: Optional[str] = kwargs.get('text')
+        command: Optional[str] = kwargs.get('command')
+        profile: Optional[str] = kwargs.get('profile')
+        topic: Optional[str] = kwargs.get('topic')
+        scores_range_start: Optional[int] = kwargs.get('scores_range_start')
+        scores_range_stop: Optional[int] = kwargs.get('scores_range_stop')
+
         return {
             "message_id": msg_id,
             "from": {
