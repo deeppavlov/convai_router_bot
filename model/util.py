@@ -232,6 +232,7 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
 
             obj['dialog_evaluation'] = u.dialog_evaluation_score
             obj['profile'] = u.assigned_profile.sentences
+            obj['topics'] = u.assigned_profile.topics
             obj['other_profile_options'] = other_profile_options
             obj['ended_dialog'] = ended_dialog
             training_conv['users'].append(obj)
@@ -244,7 +245,9 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
                 'sender': usr[0],
                 'sender_class': usr[1],
                 'text': msg.text,
-                'evaluation_score': msg.evaluation_score
+                'evaluation_score': msg.evaluation_score,
+                'system': msg.system,
+                'time': msg.time.strftime("%Y-%m-%d %H:%M:%S"),
             }
 
             training_conv['dialog'].append(training_message)
