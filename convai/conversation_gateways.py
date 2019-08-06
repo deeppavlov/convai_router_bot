@@ -1,5 +1,4 @@
 import asyncio
-import calendar
 import enum
 import json
 import logging
@@ -985,7 +984,7 @@ class BotsGateway(AbstractGateway):
                 "first_name": f"{msg_id}",
                 "type": "private"
             },
-            "date": calendar.timegm(date.utctimetuple()),
+            "date": date.timestamp(),
             "payload": {
                 "text": text,
                 "command": command,
