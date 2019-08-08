@@ -1,5 +1,4 @@
 import asyncio
-import calendar
 import enum
 import json
 import logging
@@ -62,6 +61,7 @@ class AbstractDialogHandler(ABC):
 
         :param conversation_id: integer id of the dialog
         :param peer: a peer willing to switch conversation topic
+        :param use_images: True if sending topic as image
         """
         pass
 
@@ -238,8 +238,8 @@ class NoopDialogHandler(AbstractDialogHandler):
 class HumansGateway(AbstractGateway, AbstractHumansGateway):
     class ConversationRecord:
         message_ids_map: Dict[str, int]
-        opponent_profile_options: List[PersonProfile]
-        opponent_profile_correct: PersonProfile
+        opponent_profile_options: Optional[List[PersonProfile]]
+        opponent_profile_correct: Optional[PersonProfile]
         sentences_selected: int
         shuffled_sentences: List[Tuple[str, str]]
         peer_conversation_guid: str
@@ -373,11 +373,12 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             await messenger.send_message_to_user(user, self.messages('switch_topic_not_available'), False)
             return
 
-    async def on_topic_switched(self, user: User, topic_text: str):
+    async def on_topic_switched(self, user: User, topic_text: str, **kwargs):
         self.log.info(f'user informed about conversation topic switch')
         user = await self._update_user_record_in_db(user)
         messenger = self._messenger_for_user(user)
-        await messenger.send_message_to_user(user, self.messages('switch_topic_info', topic_text), False)
+        await messenger.send_message_to_user(user, self.messages('switch_topic_info'), False)
+        await messenger.send_message_to_user(user, topic_text, False, **kwargs)
 
     async def on_enter_set_bot(self, user: User):
         self.log.info(f'user requested for setting bot for conversation')
@@ -595,14 +596,16 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         if self.dialog_options['assign_profile']:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False)
             await messenger.send_message_to_user(user, self.messages('start_conversation_profile_assigning'), False)
+            kwargs = {'image': profile.description_image} if self.dialog_options['use_images'] else {}
             await messenger.send_message_to_user(user, profile.description, False,
-                                                 keyboard_buttons=self.keyboards['in_dialog'])
+                                                 keyboard_buttons=self.keyboards['in_dialog'], **kwargs)
         else:
             await messenger.send_message_to_user(user, self.messages('start_conversation_peer_found'), False,
                                                  keyboard_buttons=self.keyboards['in_dialog'])
 
         if self.dialog_options['show_topics'] and profile.topics:
-            await self.on_topic_switched(user, profile.topics[0])
+            kwargs = {'image': profile.get_topic_image(0)} if self.dialog_options['use_images'] else {}
+            await self.on_topic_switched(user, profile.topics[0], **kwargs)
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: User):
         self.log.info(f'sending message to user {receiving_peer} in conversation {conversation_id}')
@@ -811,6 +814,17 @@ class BotsGateway(AbstractGateway):
         self._n_bad_messages_threshold = dialog_options['n_bad_messages_in_a_row_threshold']
         self._bot_queues = {}
         self._active_chats_trigrams = defaultdict(dict)
+        self._use_topics = dialog_options['show_topics']
+
+    async def on_topic_switched(self, peer: Bot, topic_text: str, **kwargs):
+        bot = await self._get_bot(peer.token)
+        q = self._get_queue(bot)
+        kwargs['command'] = 'newtopic'
+        kwargs['topic'] = topic_text
+        msg = self._get_message_dict(datetime.utcnow(),
+                                     **kwargs)
+        q.put_nowait(msg)
+        self.log.info(f'new topic was sent to bot {bot.token}')
 
     async def start_conversation(self, conversation_id: int, own_peer: Bot, profile: PersonProfile,
                                  peer_conversation_guid: str):
@@ -819,20 +833,23 @@ class BotsGateway(AbstractGateway):
         bot = await self._get_bot(own_peer.token)
         q = self._get_queue(bot)
         self._active_chats_trigrams[conversation_id][bot.token] = self.TrigramsStorage(profile.description)
-        msg = self._get_message_dict(f'/start\n{profile.description}',
-                                     datetime.utcnow(),
+        kwargs = {'command': 'start', 'profile': profile.description}
+        if self._use_topics and profile.topics:
+            kwargs['topic'] = profile.topics[0]
+        msg = self._get_message_dict(datetime.utcnow(),
                                      conversation_id,
-                                     0)
+                                     0,
+                                     **kwargs)
         q.put_nowait(msg)
 
     async def send_message(self, conversation_id: int, msg_id: int, msg_text: str, receiving_peer: Bot):
         self.log.info(f'sending message to bot {receiving_peer.token} in conversation {conversation_id}')
         bot = await self._get_bot(receiving_peer.token)
         q = self._get_queue(bot)
-        msg = self._get_message_dict(msg_text,
-                                     datetime.utcnow(),
+        msg = self._get_message_dict(datetime.utcnow(),
                                      conversation_id,
-                                     msg_id)
+                                     msg_id,
+                                     text=msg_text)
         q.put_nowait(msg)
 
     async def start_evaluation(self, conversation_id: int, peer: Bot, other_peer_profile_options: List[PersonProfile],
@@ -841,10 +858,13 @@ class BotsGateway(AbstractGateway):
         bot = await self._get_bot(peer.token)
         q = self._get_queue(bot)
         profiles_desc = '\n'.join([f'/profile_{i}\n{p.description}' for i, p in enumerate(other_peer_profile_options)])
-        q.put_nowait(self._get_message_dict(f'/end {scores_range.start} {scores_range.stop - 1}\n{profiles_desc}',
-                                            datetime.utcnow(),
+        q.put_nowait(self._get_message_dict(datetime.utcnow(),
                                             conversation_id,
-                                            10 ** 6))
+                                            10 ** 6,
+                                            profile=profiles_desc,
+                                            command='end',
+                                            scores_range_start=scores_range.start,
+                                            scores_range_stop=scores_range.stop))
 
     async def finish_conversation(self, conversation_id: int):
         del self._active_chats_trigrams[conversation_id]
@@ -912,7 +932,7 @@ class BotsGateway(AbstractGateway):
                                                                score,
                                                                evaluated_msg_id)
 
-        return self._get_message_dict(msg_raw, date, chat_id, msg_id)
+        return self._get_message_dict(date, chat_id, msg_id, text=msg_raw)
 
     async def _validate_trigrams(self, msg: str, chat_id: int, bot: Bot):
         storage = self._active_chats_trigrams[chat_id][bot.token]
@@ -944,7 +964,14 @@ class BotsGateway(AbstractGateway):
         return self._bot_queues[bot.token]
 
     @staticmethod
-    def _get_message_dict(text: str, date: datetime, conv_id: int, msg_id: int) -> dict:
+    def _get_message_dict(date: datetime, conv_id: int, msg_id: int, **kwargs) -> dict:
+        text: Optional[str] = kwargs.get('text')
+        command: Optional[str] = kwargs.get('command')
+        profile: Optional[str] = kwargs.get('profile')
+        topic: Optional[str] = kwargs.get('topic')
+        scores_range_start: Optional[int] = kwargs.get('scores_range_start')
+        scores_range_stop: Optional[int] = kwargs.get('scores_range_stop')
+
         return {
             "message_id": msg_id,
             "from": {
@@ -957,6 +984,13 @@ class BotsGateway(AbstractGateway):
                 "first_name": f"{msg_id}",
                 "type": "private"
             },
-            "date": calendar.timegm(date.utctimetuple()),
-            "text": text
+            "date": date.timestamp(),
+            "payload": {
+                "text": text,
+                "command": command,
+                "profile": profile,
+                "topic": topic,
+                "scores_range_start": scores_range_start,
+                "scores_range_stop": scores_range_stop
+            }
         }

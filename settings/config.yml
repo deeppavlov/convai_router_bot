@@ -20,6 +20,7 @@ dialog_options:
   n_messages_to_switch_topic: 5
   allow_set_bot: false
   reveal_dialog_id: false
+  use_images: true
 
 evaluation_options:
   score_dialog: true

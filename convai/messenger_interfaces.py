@@ -182,15 +182,20 @@ class TelegramMessenger(AbstractMessenger):
     async def _send_message(self, user_id: str,
                             msg_text: str,
                             include_inline_evaluation_query: bool,
-                            keyboard_buttons: Optional[List[str]] = None,
                             **kwargs) -> str:
+        image = kwargs.get('image', None)
+        keyboard_buttons: Optional[List[str]] = kwargs.get('keyboard_buttons', None)
         if include_inline_evaluation_query:
             kb = self._get_evaluate_msg_keyboard()
         elif keyboard_buttons is not None:
             kb = ReplyKeyboardMarkup(keyboard=[keyboard_buttons], resize_keyboard=True)
         else:
             kb = None
-        kwargs = {'reply_markup': kb} if kb is not None else {}
+        kwargs = {}
+        if image is not None:
+            kwargs['image'] = image
+        if kb is not None:
+            kwargs['reply_markup'] = kb
         reply = await self._send_msg_with_timeouts_handling(user_id, msg_text, **kwargs)
 
         self.log.info(f'message sent to {user_id}')
@@ -221,7 +226,18 @@ class TelegramMessenger(AbstractMessenger):
     async def _send_msg_with_timeouts_handling(self, user_id, msg_text, *args, **kwargs):
         while True:
             try:
-                return await self._tg_bot.sendMessage(user_id, msg_text, *args, **kwargs)
+                if 'image' not in kwargs:
+                    reply = await self._tg_bot.sendMessage(user_id, msg_text, *args, **kwargs)
+                else:
+                    img = kwargs['image']
+                    kwargs_wo_image = {key: kwargs[key] for key in kwargs if key != 'image'}
+                    if img.telegram_id is not None:
+                        reply = await self._tg_bot.sendPhoto(user_id, img.telegram_id, *args, **kwargs_wo_image)
+                    else:
+                        reply = await self._tg_bot.sendPhoto(user_id, img.binary, *args, **kwargs_wo_image)
+                        img.telegram_id = reply['photo'][-1]['file_id']
+                        img.save()
+                return reply
             except TelegramError as e:
                 if e.error_code == 429:
                     params = e.json['parameters'] if 'parameters' in e.json else {}
@@ -230,6 +246,9 @@ class TelegramMessenger(AbstractMessenger):
                     await asyncio.sleep(timeout)
                 elif e.error_code == 504:
                     self.log.warning(f'Timeout. Retrying...')
+                elif e.error_code == 400:
+                    self.log.warning(e.description)
+                    img.telegram_id = None
                 else:
                     raise
 
