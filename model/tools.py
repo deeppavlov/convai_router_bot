@@ -1,8 +1,11 @@
 import re
 from io import BytesIO
+from pathlib import Path
 
 from textwrap import wrap
 from PIL import Image as Im, ImageDraw, ImageFont
+
+path_to_font = Path(__file__).resolve().parents[0] / 'arial.ttf'
 
 def get_image_from_text(text: str, topic: bool = False) -> bytes:
     """
@@ -17,7 +20,7 @@ def get_image_from_text(text: str, topic: bool = False) -> bytes:
         lines = wrap(text, width=25)
     else:
         lines = re.findall(r'(.+?)\.', text)
-    fnt = ImageFont.truetype('/home/ubuntu/remote_development/model/arial.ttf', font_size)
+    fnt = ImageFont.truetype(str(path_to_font), font_size)
     width = max([fnt.getsize(line)[0] for line in lines]) + 20
     height = max(width // 2, len(lines) * font_size + 20)
     img = Im.new('RGB', (width, height), color=bg_color)
