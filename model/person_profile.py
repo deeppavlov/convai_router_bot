@@ -30,7 +30,7 @@ class PersonProfile(Document):
     def get_topic_image(self, topic_num) -> Image:
         if len(self.topics_images) <= topic_num:
             img = Image()
-            img.binary = get_image_from_text(self.topics[topic_num], True)
+            img.binary = get_image_from_text(self.topics[topic_num])
             img.save()
             self.topics_images.append(img.id)
             self.save()
