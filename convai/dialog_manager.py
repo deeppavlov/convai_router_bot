@@ -90,7 +90,7 @@ class DialogManager(AbstractDialogHandler):
         if user in self._lobby or user in map(lambda p: p.peer, active_dialogs_peers):
             raise SimultaneousDialogsError("Starting multiple dialogs simultaneously is prohibited")
 
-        if random.random() >= self.human_bot_ratio:
+        if random.random() > self.human_bot_ratio:
             log.info(f'bot peer selected')
             await self._start_dialog_with_bot(user)
             return
@@ -157,12 +157,15 @@ class DialogManager(AbstractDialogHandler):
 
         if messages_to_switch_topic_left == 0:
             index = conversation.active_topic_index
-            conversation.add_message(text=f'Switched to topic with index {index}', sender=peer, system=True)
+            msg = conversation.add_message(text=f'Switched to topic with index {index}', sender=peer, system=True)
 
             for conv_peer in conversation.participants:
                 kwargs = {}
-                if self.dialog_options['use_images']:
+                if self.dialog_options['use_images'] and isinstance(conv_peer.peer, User):
                     kwargs['image'] = conv_peer.assigned_profile.get_topic_image(index)
+                if isinstance(conv_peer.peer, Bot):
+                    kwargs['conv_id'] = conversation_id
+                    kwargs['msg_id'] = msg.msg_id
                 await self._gateway_for_peer(conv_peer.peer).on_topic_switched(conv_peer.peer,
                                                                                conv_peer.assigned_profile.topics[index],
                                                                                **kwargs)
