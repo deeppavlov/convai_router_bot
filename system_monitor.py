@@ -6,18 +6,30 @@ import json
 import csv
 from pathlib import Path
 
+import yaml
 import mongoengine
 
 import output_formatters
 from model import util, Bot, User, BannedPair, UserPK
 
 
+def load_config():
+    config_path = Path(__file__).parent / 'settings' / 'config.yml'
+
+    with config_path.open('r') as f:
+        config = yaml.safe_load(f.read())
+
+    return config
+
+
 def setup_db_connection(uri=None):
     if uri is None:
         uri = os.environ.get('MONGO_URI')
+
     if uri is None:
-        uri = "mongodb://localhost/convai"
-        print('Warning: MONGO_URI is not provided. Using the default one: {}'.format(uri), file=sys.stderr)
+        config = load_config()
+        uri = str(config['mongo_uri']).lstrip('${MONGO_URI:').rstrip('}')
+        print('Warning: MONGO_URI is not provided. Using the config one: {}'.format(uri), file=sys.stderr)
 
     mongoengine.connect(host=uri)
 
