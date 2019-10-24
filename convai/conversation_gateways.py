@@ -252,6 +252,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             self.opponent_profile_correct = None
             self.sentences_selected = 0
             self.shuffled_sentences = []
+            self.messages_to_evaluate = set()
 
     class UserState(enum.Flag):
         IDLE = enum.auto()
@@ -276,6 +277,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.evaluation_options = evaluation_options
 
         self.guess_profile_sentence_by_sentence = evaluation_options['guess_profile_sentence_by_sentence']
+        self.evaluate_message = self.evaluation_options['evaluate_message']
         self.allow_set_bot = dialog_options['allow_set_bot']
         self.reveal_dialog_id = dialog_options['reveal_dialog_id']
 
@@ -354,6 +356,11 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
 
         else:
             conv = self._conversations[user]
+
+        if self.evaluate_message and conv.messages_to_evaluate:
+            messenger = self._messenger_for_user(user)
+            await messenger.send_message_to_user(user, self.messages('evaluate_all_messages'), False)
+            return
 
         if not self.dialog_options['show_topics']:
             await messenger.send_message_to_user(user, self.messages('switch_topic_not_allowed'), False)
@@ -486,12 +493,17 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             return
 
         conv = self._conversations[user]
+        if self.evaluate_message and conv.messages_to_evaluate:
+            messenger = self._messenger_for_user(user)
+            await messenger.send_message_to_user(user, self.messages('evaluate_all_messages'), False)
+            return
 
         internal_id = await self._dialog_handler.on_message_received(conv.conv_id, user, text, time)
         if msg_id is not None:
             conv.message_ids_map[msg_id] = internal_id
 
-    async def on_evaluate_message(self, user: User, score: int, msg_id: str = None) -> bool:
+    async def on_evaluate_message(self, user: User, score: int, msg_id: Optional[int] = None) -> bool:
+        msg_id = str(msg_id)
         self.log.info(f'message evaluated')
         user = await self._update_user_record_in_db(user)
         if not await self._validate_user_state(user,
@@ -504,6 +516,8 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         internal_id = conv.message_ids_map[msg_id] if msg_id in conv.message_ids_map else None
 
         await self.dialog_handler.on_message_evaluated(conv.conv_id, user, score, internal_id)
+        if self.evaluate_message:
+            conv.messages_to_evaluate.discard(msg_id)
         return True
 
     async def on_end_dialog(self, initiator: User):
@@ -612,8 +626,11 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         user = await self._update_user_record_in_db(receiving_peer)
         messenger = self._messenger_for_user(user)
         conv = self._conversations[user]
-        external_id = await messenger.send_message_to_user(receiving_peer, msg_text, True)
+        external_id = await messenger.send_message_to_user(receiving_peer, msg_text, self.evaluate_message)
         conv.message_ids_map[external_id] = msg_id
+
+        if self.evaluate_message:
+            conv.messages_to_evaluate.add(external_id)
 
     async def start_evaluation(self, conversation_id: int, peer: User, other_peer_profile_options: List[PersonProfile],
                                other_peer_profile_correct: PersonProfile, scores_range: range):
