@@ -246,11 +246,11 @@ class TelegramMessenger(AbstractMessenger):
                     await asyncio.sleep(timeout)
                 elif e.error_code == 504:
                     self.log.warning(f'Timeout. Retrying...')
-                elif e.error_code == 400:
+                elif e.error_code == 400 and 'image' in kwargs:
                     self.log.warning(e.description)
                     img.telegram_id = None
                 else:
-                    raise
+                    raise e
 
     async def _on_chat_msg(self, msg: Dict):
         self.log.info(f'chat message received')

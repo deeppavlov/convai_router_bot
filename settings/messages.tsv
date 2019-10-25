@@ -38,6 +38,7 @@ evaluation_saved	Evaluation saved. Waiting for your partner to finish evaluation
 evaluation_saved_show_id	"Evaluation saved. Your conversation secret id: {}
 
 Waiting for your partner to finish evaluation..."
+evaluate_all_messages	Please evaluate all messages of your partner first.
 profile_selection_invitation	Select a profile which, in your opinion, belongs to your partner:
 profile_selection_not_allowed	Partner profile choosing is not allowed at the moment. Use /help command for usage instructions.
 profile_selection_sentences_selection	Which one of these sentences describes your partner better ({}/{})?
