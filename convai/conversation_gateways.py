@@ -277,7 +277,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         self.evaluation_options = evaluation_options
 
         self.guess_profile_sentence_by_sentence = evaluation_options['guess_profile_sentence_by_sentence']
-        self.evaluate_message = self.evaluation_options['evaluate_message']
+        self.evaluate_message_required = self.evaluation_options['evaluate_message_required']
         self.allow_set_bot = dialog_options['allow_set_bot']
         self.reveal_dialog_id = dialog_options['reveal_dialog_id']
 
@@ -357,7 +357,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         else:
             conv = self._conversations[user]
 
-        if self.evaluate_message and conv.messages_to_evaluate:
+        if self.evaluate_message_required and conv.messages_to_evaluate:
             messenger = self._messenger_for_user(user)
             await messenger.send_message_to_user(user, self.messages('evaluate_all_messages'), False)
             return
@@ -493,7 +493,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
             return
 
         conv = self._conversations[user]
-        if self.evaluate_message and conv.messages_to_evaluate:
+        if self.evaluate_message_required and conv.messages_to_evaluate:
             messenger = self._messenger_for_user(user)
             await messenger.send_message_to_user(user, self.messages('evaluate_all_messages'), False)
             return
@@ -516,7 +516,7 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         internal_id = conv.message_ids_map[msg_id] if msg_id in conv.message_ids_map else None
 
         await self.dialog_handler.on_message_evaluated(conv.conv_id, user, score, internal_id)
-        if self.evaluate_message:
+        if self.evaluate_message_required:
             conv.messages_to_evaluate.discard(msg_id)
         return True
 
@@ -626,10 +626,10 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
         user = await self._update_user_record_in_db(receiving_peer)
         messenger = self._messenger_for_user(user)
         conv = self._conversations[user]
-        external_id = await messenger.send_message_to_user(receiving_peer, msg_text, self.evaluate_message)
+        external_id = await messenger.send_message_to_user(receiving_peer, msg_text, True)
         conv.message_ids_map[external_id] = msg_id
 
-        if self.evaluate_message:
+        if self.evaluate_message_required:
             conv.messages_to_evaluate.add(external_id)
 
     async def start_evaluation(self, conversation_id: int, peer: User, other_peer_profile_options: List[PersonProfile],
