@@ -256,7 +256,7 @@ class DialogManager(AbstractDialogHandler):
 
         selected_parts = [x for x in evaluator_peer.other_peer_profile_selected_parts if x is not None]
 
-        if len(selected_parts) == len(other_peer.assigned_profile.sentences):
+        if len(selected_parts) == len(other_peer.assigned_profile.persona):
             self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.PROFILE_SELECTED
             await self._handle_evaluation_state(conversation_id)
 
@@ -397,7 +397,7 @@ class DialogManager(AbstractDialogHandler):
                 # profiles assignment order:
                 # other profile from the same linked group || profile with unmatching sentences || same profile
                 second_profile = random.choice(profiles(id__ne=first_profile.id, link_uuid=linked_profile_uuid) or
-                                               (profiles(sentences__ne=first_profile.sentences) or [first_profile]))
+                                               (profiles(persona__ne=first_profile.persona) or [first_profile]))
 
                 p.assigned_profile = second_profile
 
@@ -453,7 +453,7 @@ class DialogManager(AbstractDialogHandler):
         to_await = []
         for i, p in enumerate(conversation.participants):
             true_profile: PersonProfile = conversation.participants[1 - i].assigned_profile
-            random_profile: PersonProfile = random.choice(db_profiles(sentences__ne=true_profile.sentences) or
+            random_profile: PersonProfile = random.choice(db_profiles(persona__ne=true_profile.persona) or
                                                           [true_profile])
 
             profiles = [true_profile, random_profile]

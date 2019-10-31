@@ -1,11 +1,12 @@
+import json
 import os
 import random
-from datetime import datetime, timedelta
-from io import StringIO
-from typing import TextIO, Union
-from uuid import uuid4
 from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import TextIO
+from uuid import uuid4
 
+import yaml
 from mongoengine import errors
 from mongoengine.queryset.visitor import Q
 
@@ -27,7 +28,7 @@ def fill_db_with_stub(n_bots=5,
     with open(os.path.join(os.path.split(__file__)[0], "lorem_ipsum.txt"), 'r') as f:
         lorem_ipsum = f.read().split(' ')
 
-    profiles = [PersonProfile(sentences=[' '.join(lorem_ipsum[i * 10:(i + 1) * 10])],
+    profiles = [PersonProfile(persona=[' '.join(lorem_ipsum[i * 10:(i + 1) * 10])],
                               link_uuid=str(uuid4()),
                               topics=[f'Topic_{i}' for i in range(random.randrange(n_topics + 1))]
                               ).save() for i in range(n_profiles)]
@@ -149,18 +150,24 @@ def set_default_bot(platform, user_id, token):
     return user.update(assigned_test_bot=bot)
 
 
-def import_profiles(stream: Union[TextIO, StringIO]):
+def import_profiles(stream: TextIO):
+    _, ext = os.path.splitext(stream.name)
+    if ext == '.json':
+        linked_groups = json.load(stream)
+    elif ext == '.yaml' or ext == '.yml':
+        linked_groups = yaml.safe_load(stream)
+    else:
+        raise ValueError(f'file extension "{ext}" is not supported, it should be either `json` or `yaml/yml`')
     profiles = []
-    linked_groups = [linked_profiles.split('[:linked:]') for linked_profiles in stream.read().split('\n\n')]
 
     for linked_group in linked_groups:
         link_uuid = str(uuid4())
 
         for linked_profile in linked_group:
-            profile_contents = linked_profile.strip('\n').split('[:topic:]')
-            profiles.append(PersonProfile(sentences=profile_contents.pop(0).strip('\n').splitlines(),
+            profiles.append(PersonProfile(persona=linked_profile['persona'],
+                                          tags=linked_profile.get('tags', []),
                                           link_uuid=link_uuid,
-                                          topics=profile_contents))
+                                          topics=linked_profile.get('topics', [])))
 
     return PersonProfile.objects.insert(profiles)
 
@@ -211,9 +218,9 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             obj['user_external_id'] = u.peer_conversation_guid
             user_map[u.peer] = (uid, uclass)
 
-            other_profile_true = users[j].assigned_profile.sentences
+            other_profile_true = users[j].assigned_profile.persona
             if u.other_peer_profile_selected is not None:
-                other_profile_hyp = u.other_peer_profile_selected.sentences
+                other_profile_hyp = u.other_peer_profile_selected.persona
             else:
                 other_profile_hyp = None
 
@@ -224,14 +231,14 @@ def export_training_conversations(date_begin=None, date_end=None, reveal_sender=
             else:
                 obj['profile_match'] = -1
 
-            other_profile_options = [pr.sentences for pr in u.other_peer_profile_options]
+            other_profile_options = [pr.persona for pr in u.other_peer_profile_options]
             ended_dialog = False
             if 'triggered_dialog_end' in u:
                 if u['triggered_dialog_end']:
                     ended_dialog = True
 
             obj['dialog_evaluation'] = u.dialog_evaluation_score
-            obj['profile'] = u.assigned_profile.sentences
+            obj['profile'] = u.assigned_profile.persona
             obj['topics'] = u.assigned_profile.topics
             obj['other_profile_options'] = other_profile_options
             obj['ended_dialog'] = ended_dialog
@@ -265,7 +272,7 @@ def export_bot_scores(date_begin=None, date_end=None, daily_stats=False):
     convs = {}
 
     profiles_obj = PersonProfile.objects
-    profiles = {str(profile.pk): list(profile.sentences) for profile in profiles_obj}
+    profiles = {str(profile.pk): list(profile.persona) for profile in profiles_obj}
 
     bot_daily_stats = {}
 
@@ -344,7 +351,7 @@ def export_bot_scores(date_begin=None, date_end=None, daily_stats=False):
                 profile_selected_scores.append(profile_selected_score)
                 count_as_scored = count_as_scored | True
             elif len(user_selected_profile_parts) > 0:
-                profile_set = set(list(bot_profile.sentences))
+                profile_set = set(list(bot_profile.persona))
                 selected_set = set(list(user_selected_profile_parts))
                 matched_set = profile_set.intersection(selected_set)
 
@@ -360,7 +367,7 @@ def export_bot_scores(date_begin=None, date_end=None, daily_stats=False):
             convs[bot_id][bot_conv_id] = {
                 'user_eval_score': user_eval_score,
                 'profile_selected_score': profile_selected_score,
-                'profile_set': list(bot_profile.sentences),
+                'profile_set': list(bot_profile.persona),
                 'selected_set': list(user_selected_profile_parts),
                 'num_messages': num_messages
                 }

@@ -371,8 +371,7 @@ def setup_argparser():
     parser_import_profiles.add_argument('profiles_file',
                                         type=argparse.FileType('r'),
                                         nargs='?',
-                                        help='Profiles file name. stdin by default',
-                                        default=sys.stdin)
+                                        help='Profiles file name')
     parser_import_profiles.set_defaults(func=handle_import_profiles)
 
     training_conversations = subparsers.add_parser('training-dialogs',
