@@ -5,7 +5,6 @@ import sys
 import json
 import csv
 from pathlib import Path
-from typing import Optional
 
 import yaml
 import mongoengine

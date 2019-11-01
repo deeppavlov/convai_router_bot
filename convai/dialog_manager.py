@@ -17,7 +17,7 @@ from mongoengine import ValidationError, FieldDoesNotExist, QuerySet
 from convai import run_sync_in_executor
 from convai.conversation_gateways import AbstractGateway, AbstractDialogHandler, HumansGateway, BotsGateway
 from convai.exceptions import UserBannedError, SimultaneousDialogsError
-from model import User, Bot, BannedPair, Conversation, ConversationPeer, PersonProfile, Message, Complaint
+from model import User, Bot, BannedPair, Conversation, ConversationPeer, PersonProfile, Complaint, Settings
 
 log = logging.getLogger(__name__)
 
@@ -383,7 +383,16 @@ class DialogManager(AbstractDialogHandler):
         conversation = Conversation(participant1=ConversationPeer(peer=user, peer_conversation_guid=uuid4().__str__()),
                                     participant2=ConversationPeer(peer=peer, peer_conversation_guid=uuid4().__str__()))
 
-        profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects)
+        tags_set: QuerySet = Settings.objects(name='tags')
+        active_tags = tags_set.first().value if tags_set.count() else []
+
+        if active_tags:
+            profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects(tags__in=active_tags))
+            if profiles.count() == 0:
+                log.warning(f'Not found any profiles with tags: {active_tags}')
+                profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects)
+        else:
+            profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects)
 
         first_profile = None
         linked_profile_uuid = None
