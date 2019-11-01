@@ -22,5 +22,5 @@ class ConversationPeer(EmbeddedDocument):
         if self.other_peer_profile_selected is not None:
             return self.other_peer_profile_selected
         if self.other_peer_profile_selected_parts:
-            return PersonProfile(sentences=self.other_peer_profile_selected_parts, id='<assembled>')
+            return PersonProfile(persona=self.other_peer_profile_selected_parts, id='<assembled>')
         return None

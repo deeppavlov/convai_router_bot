@@ -17,7 +17,7 @@ from mongoengine import ValidationError, FieldDoesNotExist, QuerySet
 from convai import run_sync_in_executor
 from convai.conversation_gateways import AbstractGateway, AbstractDialogHandler, HumansGateway, BotsGateway
 from convai.exceptions import UserBannedError, SimultaneousDialogsError
-from model import User, Bot, BannedPair, Conversation, ConversationPeer, PersonProfile, Message, Complaint
+from model import User, Bot, BannedPair, Conversation, ConversationPeer, PersonProfile, Complaint, Settings
 
 log = logging.getLogger(__name__)
 
@@ -256,7 +256,7 @@ class DialogManager(AbstractDialogHandler):
 
         selected_parts = [x for x in evaluator_peer.other_peer_profile_selected_parts if x is not None]
 
-        if len(selected_parts) == len(other_peer.assigned_profile.sentences):
+        if len(selected_parts) == len(other_peer.assigned_profile.persona):
             self._evaluations[conversation_id][peer_idx] |= self.EvaluationState.PROFILE_SELECTED
             await self._handle_evaluation_state(conversation_id)
 
@@ -383,7 +383,16 @@ class DialogManager(AbstractDialogHandler):
         conversation = Conversation(participant1=ConversationPeer(peer=user, peer_conversation_guid=uuid4().__str__()),
                                     participant2=ConversationPeer(peer=peer, peer_conversation_guid=uuid4().__str__()))
 
-        profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects)
+        tags_set: QuerySet = Settings.objects(name='tags')
+        active_tags = tags_set.first().value if tags_set.count() else []
+
+        if active_tags:
+            profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects(tags__in=active_tags))
+            if profiles.count() == 0:
+                log.warning(f'Not found any profiles with tags: {active_tags}')
+                profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects)
+        else:
+            profiles: QuerySet = await run_sync_in_executor(PersonProfile.objects)
 
         first_profile = None
         linked_profile_uuid = None
@@ -397,7 +406,7 @@ class DialogManager(AbstractDialogHandler):
                 # profiles assignment order:
                 # other profile from the same linked group || profile with unmatching sentences || same profile
                 second_profile = random.choice(profiles(id__ne=first_profile.id, link_uuid=linked_profile_uuid) or
-                                               (profiles(sentences__ne=first_profile.sentences) or [first_profile]))
+                                               (profiles(persona__ne=first_profile.persona) or [first_profile]))
 
                 p.assigned_profile = second_profile
 
@@ -453,7 +462,7 @@ class DialogManager(AbstractDialogHandler):
         to_await = []
         for i, p in enumerate(conversation.participants):
             true_profile: PersonProfile = conversation.participants[1 - i].assigned_profile
-            random_profile: PersonProfile = random.choice(db_profiles(sentences__ne=true_profile.sentences) or
+            random_profile: PersonProfile = random.choice(db_profiles(persona__ne=true_profile.persona) or
                                                           [true_profile])
 
             profiles = [true_profile, random_profile]

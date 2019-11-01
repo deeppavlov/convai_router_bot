@@ -31,7 +31,7 @@ class TestHumanReadable(TestCase):
 
     @property
     def profile(self):
-        return PersonProfile(sentences=['profile description'])
+        return PersonProfile(persona=['profile description'])
 
     @property
     def conversation_peers(self):

@@ -723,17 +723,17 @@ class HumansGateway(AbstractGateway, AbstractHumansGateway):
     async def _prepare_profile_sentences(self, user: User):
         conv = self._conversations[user]
 
-        for i in range(len(conv.opponent_profile_correct.sentences)):
+        for i in range(len(conv.opponent_profile_correct.persona)):
             async def get_sentence(profile: PersonProfile) -> str:
-                if len(profile.sentences) > i:
-                    return profile.sentences[i]
+                if len(profile.persona) > i:
+                    return profile.persona[i]
 
                 def get_random_sentence(idx: int) -> str:
-                    query = f'sentences__{idx}__exists'
+                    query = f'persona__{idx}__exists'
                     profiles = PersonProfile.objects(**{query: True})
                     count = profiles.count()
 
-                    return profiles[randrange(count)].sentences[idx]
+                    return profiles[randrange(count)].persona[idx]
 
                 return await run_sync_in_executor(get_random_sentence, i)
 
