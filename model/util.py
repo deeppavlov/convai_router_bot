@@ -7,10 +7,10 @@ from typing import TextIO
 from uuid import uuid4
 
 import yaml
-from mongoengine import errors
+from mongoengine import errors, QuerySet
 from mongoengine.queryset.visitor import Q
 
-from . import Bot, PersonProfile, User, UserPK, BannedPair, Conversation, ConversationPeer, Message, Complaint
+from . import Bot, PersonProfile, User, UserPK, BannedPair, Conversation, ConversationPeer, Message, Complaint, Settings
 
 
 def fill_db_with_stub(n_bots=5,
@@ -170,6 +170,42 @@ def import_profiles(stream: TextIO):
                                           topics=linked_profile.get('topics', [])))
 
     return PersonProfile.objects.insert(profiles)
+
+
+def manage_tags(action: str, tag: str) -> str:
+    tags_set: QuerySet = Settings.objects(name='tags')
+    num_of_tags = tags_set.count()
+    if num_of_tags == 0:
+        tags = Settings(name='tags', value=list())
+        tags.save()
+    elif num_of_tags == 1:
+        tags = tags_set.first()
+    else:
+        raise ValueError('multiple documents in "Settings" collection with name "tags"')
+
+    tag_count = tags.value.count(tag)
+    if action == 'add':
+        if tag_count:
+            response = f'"{tag}" is already in active tags list'
+        else:
+            tags.update(add_to_set__value=tag)
+            response = f'"{tag}" was added to the active tags list'
+    elif action == 'remove':
+        for _ in range(tag_count):
+            tags.update(pull__value=tag)
+        if tag_count:
+            response = f'"{tag}" was removed from the active tags list'
+        else:
+            response = f'"{tag}" does not in active tags list'
+    elif action == 'list':
+        if tags.value:
+            response = f"{len(tags.value)} tags in active tags list: {', '.join(tags.value)}"
+        else:
+            response = 'active tags list is empty'
+    else:
+        raise ValueError(f'unexpected action argument value: {action}')
+
+    return response
 
 
 def export_training_conversations(date_begin=None, date_end=None, reveal_sender=False, reveal_ids=False):

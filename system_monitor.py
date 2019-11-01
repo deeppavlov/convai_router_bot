@@ -5,6 +5,7 @@ import sys
 import json
 import csv
 from pathlib import Path
+from typing import Optional
 
 import yaml
 import mongoengine
@@ -96,6 +97,14 @@ def handle_banlist_human_bot(args):
 def handle_import_profiles(args):
     profiles = util.import_profiles(args.profiles_file)
     print(f'{len(profiles)} profiles imported')
+
+
+def handle_manage_tags(args):
+    action = args.action
+    tag = args.tag
+    if action != 'list' and tag is None:
+        raise ValueError('please set "tag" argument')
+    print(util.manage_tags(action, tag))
 
 
 def handle_training_conversations(args):
@@ -471,6 +480,21 @@ def setup_argparser():
                                default='~/router_bot_export',
                                help='Target dir for export. Default is %(default)s')
     export_parlai.set_defaults(func=handle_export_parlai)
+
+    parser_manage_tags = subparsers.add_parser('manage-tags',
+                                                help='Manage active profile tags',
+                                                description='Manage active profile tags')
+    parser_manage_tags.add_argument('action',
+                                    type=str,
+                                    choices={'add', 'remove', 'list'},
+                                    help='Action to perform with tags',
+                                    default='list')
+    parser_manage_tags.add_argument('tag',
+                                    type=str,
+                                    help='Tag name',
+                                    nargs='?',
+                                    default=None)
+    parser_manage_tags.set_defaults(func=handle_manage_tags)
 
     return parser
 
