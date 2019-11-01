@@ -42,11 +42,11 @@ class TestHumansGateway(MockedMongoTestCase):
 
     @property
     def stub_profile(self):
-        return PersonProfile(sentences=["blah", "blah"])
+        return PersonProfile(persona=["blah", "blah"])
 
     @property
     def stub_profile_choices(self):
-        return [PersonProfile(sentences=["blah1", "blah2"]), PersonProfile(sentences=["blah3", "blah4"])]
+        return [PersonProfile(persona=["blah1", "blah2"]), PersonProfile(persona=["blah3", "blah4"])]
 
     def test_dialog_handler(self):
         self.assertEqual(self.gw.dialog_handler, self.dialog_handler)

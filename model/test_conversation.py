@@ -18,10 +18,10 @@ class TestConversation(MockedMongoTestCase):
         peer1 = ConversationPeer(peer=User(user_key=UserPK(user_id='stub',
                                                            platform=UserPK.PLATFORM_TELEGRAM),
                                            username='Dummy'),
-                                 assigned_profile=PersonProfile(sentences=['stub profile']))
+                                 assigned_profile=PersonProfile(persona=['stub profile']))
         peer2 = ConversationPeer(peer=Bot(token='stub',
                                           bot_name='Dummy'),
-                                 assigned_profile=PersonProfile(sentences=['stub profile 2']))
+                                 assigned_profile=PersonProfile(persona=['stub profile 2']))
         peers = [peer1, peer2]
 
         for p in peers:

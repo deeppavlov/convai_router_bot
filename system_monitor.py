@@ -98,6 +98,14 @@ def handle_import_profiles(args):
     print(f'{len(profiles)} profiles imported')
 
 
+def handle_manage_tags(args):
+    action = args.action
+    tag = args.tag
+    if action != 'list' and tag is None:
+        raise ValueError('please set "tag" argument')
+    print(util.manage_tags(action, tag))
+
+
 def handle_training_conversations(args):
     save_dir = Path(args.target).expanduser().resolve()
     save_dir = save_dir.joinpath('train_valid')
@@ -371,8 +379,7 @@ def setup_argparser():
     parser_import_profiles.add_argument('profiles_file',
                                         type=argparse.FileType('r'),
                                         nargs='?',
-                                        help='Profiles file name. stdin by default',
-                                        default=sys.stdin)
+                                        help='Profiles file name')
     parser_import_profiles.set_defaults(func=handle_import_profiles)
 
     training_conversations = subparsers.add_parser('training-dialogs',
@@ -472,6 +479,21 @@ def setup_argparser():
                                default='~/router_bot_export',
                                help='Target dir for export. Default is %(default)s')
     export_parlai.set_defaults(func=handle_export_parlai)
+
+    parser_manage_tags = subparsers.add_parser('manage-tags',
+                                                help='Manage active profile tags',
+                                                description='Manage active profile tags')
+    parser_manage_tags.add_argument('action',
+                                    type=str,
+                                    choices={'add', 'remove', 'list'},
+                                    help='Action to perform with tags',
+                                    default='list')
+    parser_manage_tags.add_argument('tag',
+                                    type=str,
+                                    help='Tag name',
+                                    nargs='?',
+                                    default=None)
+    parser_manage_tags.set_defaults(func=handle_manage_tags)
 
     return parser
 
