@@ -22,14 +22,14 @@ Each profile is a dict with following keys:
 
 For example, the following list will link `Profile A` with `Profile B`, `Profile C` with `Profile D`:
 ```python
-[[{'persona': 'Profile A'}, {'persona': 'Profile B'}], [{'persona': 'Profile C'}, {'persona': 'Profile D'}]]
+[[{'persona': ['Profile A']}, {'persona': ['Profile B', 'Second sentence']}], [{'persona': ['Profile C']}, {'persona': ['Profile D']}]]
 ```
 
 ## Managing active profile tags
 
 Active profile tags list is modified via:
 ```shell script
-python system_monitor.py monage-tags <command> [<tag>]
+python system_monitor.py manage-tags <command> [<tag>]
 ```
 - `<command>` - `add` to add `<tag>` to list, `remove` to remove `<tag>` from list and `list` to get active tags list.
 - `<tag>` - tag name, mandatory parameter for `add` and `remove` commands.
