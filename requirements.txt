@@ -6,5 +6,5 @@ cchardet==2.1.1
 mongoengine==0.15.0
 mongomock==3.10.0
 PyYAML==3.12
-Pillow==6.1.0
+Pillow==6.2.0
 telepot==12.7
