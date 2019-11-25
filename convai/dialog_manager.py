@@ -293,6 +293,9 @@ class DialogManager(AbstractDialogHandler):
         if completed:
             await self._cleanup_conversation(conversation_id)
 
+    async def dialog_is_active(self, conversation_id: int) -> bool:
+        return conversation_id in self._active_dialogs
+
     def _validate_conversation_and_peer(self, conversation_id: int, peer: Union[Bot, User]):
         log.debug(f'validating conversation and peer: {conversation_id}, {peer}')
         if conversation_id not in self._active_dialogs:
