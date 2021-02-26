@@ -1,6 +1,6 @@
 aiodns==1.1.1
 aiofiles==0.3.2
-aiohttp==3.3.1
+aiohttp==3.7.4
 apscheduler==3.5.1
 cchardet==2.1.1
 mongoengine==0.15.0
